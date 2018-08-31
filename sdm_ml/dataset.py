@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod
 
@@ -32,6 +33,8 @@ class BBSDataset(Dataset):
         self.in_train = self.read_from_folder('in.train')
         self.in_train = np.squeeze(self.in_train.values)
 
+        self.lat_lon = self.read_from_folder('latlon')
+
     @staticmethod
     def read_csv_iso_encoded(csv):
 
@@ -42,16 +45,21 @@ class BBSDataset(Dataset):
         return BBSDataset.read_csv_iso_encoded(
             os.path.join(self.csv_folder, csv_name + '.csv'))
 
-    def get_training_set(self, bio_vars_only=True):
+    def get_lat_lon(self):
 
-        train_cov = covariates.loc[self.in_train, :]
+        return {'train': self.lat_lon.loc[self.in_train],
+                'test': self.lat_lon.loc[~self.in_train]}
+
+    def get_training_set(self):
+
+        train_cov = self.covariates.loc[self.in_train, :]
         train_outcomes = self.outcomes.loc[self.in_train, :]
 
         return {'covariates': train_cov, 'outcomes': train_outcomes}
 
-    def get_test_set(self, bio_vars_only=True):
+    def get_test_set(self):
 
-        test_cov = covariates.loc[~self.in_train, :]
+        test_cov = self.covariates.loc[~self.in_train, :]
         test_outcomes = self.outcomes.loc[~self.in_train, :]
 
         return {'covariates': test_cov, 'outcomes': test_outcomes}
