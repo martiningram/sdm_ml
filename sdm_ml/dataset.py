@@ -17,7 +17,7 @@ class Dataset(ABC):
 
 class BBSDataset(Dataset):
 
-    def __init__(self, csv_folder, bio_covariates_only=True):
+    def __init__(self, csv_folder, bio_covariates_only=True, max_outcomes=None):
 
         self.csv_folder = csv_folder
 
@@ -29,6 +29,9 @@ class BBSDataset(Dataset):
             self.covariates = self.covariates[of_interest]
 
         self.outcomes = self.read_from_folder('route.presence.absence')
+
+        if max_outcomes is not None:
+            self.outcomes = self.outcomes[self.outcomes.columns[:max_outcomes]]
 
         self.in_train = self.read_from_folder('in.train')
         self.in_train = np.squeeze(self.in_train.values)

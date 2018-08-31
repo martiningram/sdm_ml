@@ -4,8 +4,8 @@ from setuptools import find_packages
 
 
 setup(
-    name='BBS Gaussian Processes',
+    name='Machine learning for (Joint) Species Distribution Modelling',
     version=getenv("VERSION", "LOCAL"),
-    description='Fitting Gaussian Process models to Breeding Bird Survey data.',
+    description='Fitting machine learning models to (joint) species models.',
     packages=find_packages()
 )
