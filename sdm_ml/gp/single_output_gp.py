@@ -2,8 +2,8 @@ import gpflow
 import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
-from sklearn.cluster import MiniBatchKMeans
 from sdm_ml.model import PresenceAbsenceModel
+from sdm_ml.gp.utils import find_starting_z
 from sklearn.preprocessing import StandardScaler
 
 
@@ -19,20 +19,11 @@ class SingleOutputGP(PresenceAbsenceModel):
         self.opt_steps = opt_steps
         self.verbose = verbose
 
-    @staticmethod
-    def find_starting_z(X, num_inducing):
-        # TODO: Maybe move this to GP utils or something
-        # Find starting locations for inducing points
-        k_means = MiniBatchKMeans(n_clusters=num_inducing)
-        k_means.fit(X)
-        Z = k_means.cluster_centers_
-        return Z
-
     def fit(self, X, y):
 
         self.scaler = StandardScaler()
         X = self.scaler.fit_transform(X)
-        Z = self.find_starting_z(X, self.num_inducing)
+        Z = find_starting_z(X, self.num_inducing)
 
         for i in tqdm(range(y.shape[1])):
 

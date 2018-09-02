@@ -4,7 +4,7 @@ from setuptools import find_packages
 
 
 setup(
-    name='Machine learning for (Joint) Species Distribution Modelling',
+    name='ML SDM',
     version=getenv("VERSION", "LOCAL"),
     description='Fitting machine learning models to (joint) species models.',
     packages=find_packages()
