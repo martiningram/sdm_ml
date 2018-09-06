@@ -110,3 +110,8 @@ class MultiOutputGP(PresenceAbsenceModel):
         pred_probs = pred_means.reshape((-1, self.n_out), order='F')
 
         return pred_probs
+
+    def save_parameters(self, target_file):
+
+        as_df = self.m.as_pandas_table()
+        as_df.to_pickle(target_file)

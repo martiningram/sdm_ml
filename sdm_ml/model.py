@@ -32,3 +32,15 @@ class PresenceAbsenceModel(ABC):
                 of presence for each of the K species.
         """
         pass
+
+    @abstractmethod
+    def save_parameters(self, target_file, **kwargs):
+        """ Saves model parameters in the target file.
+
+        Args:
+            target_file (str): Where to save the model parameters [filename].
+
+        Returns:
+            Nothing, but stores model parameters in a file at the path given.
+        """
+        pass

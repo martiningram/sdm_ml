@@ -61,3 +61,15 @@ class SingleOutputGP(PresenceAbsenceModel):
             predictions.append(pred_mean_prob)
 
         return np.stack(predictions, axis=1)
+
+    def save_parameters(self, target_file, names=None):
+
+        model_dfs = [x.as_pandas_table() for x in self.models]
+        names = range(len(model_dfs)) if names is None else names
+        assert(len(names) == len(model_dfs))
+
+        for cur_name, cur_df in zip(names, model_dfs):
+            cur_df['name'] = cur_name
+
+        combined = pd.concat(model_dfs)
+        combined.to_pickle(target_file)
