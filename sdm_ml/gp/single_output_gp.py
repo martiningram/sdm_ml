@@ -1,5 +1,6 @@
 import gpflow
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from scipy.stats import norm
 from sdm_ml.model import PresenceAbsenceModel
@@ -8,6 +9,8 @@ from sdm_ml.gp.utils import find_starting_z, predict_with_link
 
 
 # TODO: Maybe allow for a more flexible kernel etc.
+# FIXME: This gets slower and slower the more models are fit. Not sure why, but
+# it is probably to do with the fact that I create a new model object each time.
 
 class SingleOutputGP(PresenceAbsenceModel):
 

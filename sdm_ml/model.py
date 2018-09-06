@@ -11,8 +11,8 @@ class PresenceAbsenceModel(ABC):
             X (np.array): An NxM matrix, with N the number of training rows, and
                 M the number of covariates.
             y (np.array): A binary NxK matrix, with N the number of training
-            rows and K the number of species considered. Entry [i, j] is 1 if
-            species j was observed at site i, and zero otherwise.
+                rows and K the number of species considered. Entry [i, j] is 1
+                if species j was observed at site i, and zero otherwise.
 
         Returns:
             Nothing, but fits the PresenceAbsenceModel.

@@ -45,9 +45,15 @@ class Evaluator(object):
             predictions = y_p[cur_species].values
             truth = y_t[cur_species].values
 
+            log_loss = self.log_loss(truth, predictions)
+
+            # TODO: Make sure I got that right!
+            deviance = log_loss * 2 * predictions.shape[0]
+
             cur_metrics = {
                 'log_loss': self.log_loss(truth, predictions),
-                'species': cur_species
+                'species': cur_species,
+                'deviance': deviance
             }
 
             results.append(cur_metrics)

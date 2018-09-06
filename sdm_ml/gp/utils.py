@@ -12,9 +12,11 @@ def find_starting_z(X, num_inducing):
 
 
 def predict_with_link(means, variances, link_fun=norm.cdf, n_samples=4000):
-    # TODO: This could create a big array (unnecessary really). If N gets
-    # really large, consider doing this in stages.
-    # Draw samples and apply link function
+    # Draws samples and apply link function.
+    # Means: 1D array of means
+    # variances: 1D array of variances (Note: variance, not standard deviation).
+    # TODO: This creates a big array of samples and then takes their mean. If
+    # "means" is very large, it may be better to do this in stages.
     sds = np.sqrt(variances)
     draws = norm.rvs(means, sds, size=(n_samples, means.shape[0]))
     return link_fun(draws)
