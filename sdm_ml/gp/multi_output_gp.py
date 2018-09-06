@@ -2,15 +2,15 @@ import gpflow
 import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
-from sdm_ml.gp.utils import find_starting_z
 from sdm_ml.model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
+from sdm_ml.gp.utils import find_starting_z, predict_with_link
 
 
 class MultiOutputGP(PresenceAbsenceModel):
 
-    def __init__(self, num_inducing=100, opt_steps=1000, verbose=False,
-                 rank=3):
+    def __init__(self, num_inducing=100, opt_steps=1000, n_draws_pred=4000,
+                 verbose=False, rank=3):
 
         self.model = None
         self.scaler = None
@@ -20,6 +20,7 @@ class MultiOutputGP(PresenceAbsenceModel):
         self.opt_steps = opt_steps
         self.verbose = verbose
         self.rank = rank
+        self.n_draws_pred = n_draws_pred
 
     @staticmethod
     def prepare_stacked_features(X, n_out):
@@ -97,12 +98,15 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         # Predict this
         means, variances = self.model.predict_f(x_stacked)
+        means, variances = np.squeeze(means), np.squeeze(variances)
+
+        # Make draws
+        draws = predict_with_link(means, variances, link_fun=norm.cdf,
+                                  samples=n_draws_pred)
+
+        pred_means = np.mean(draws, axis=0)
 
         # Reshape back using Fortran ordering
-        pred_means = means.reshape((-1, self.n_out), order='F')
-
-        # TODO: should probably do something with the variance, but use mean
-        # only for now.
-        pred_probs = norm.cdf(pred_means)
+        pred_probs = pred_means.reshape((-1, self.n_out), order='F')
 
         return pred_probs

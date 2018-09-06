@@ -3,21 +3,23 @@ import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
 from sdm_ml.model import PresenceAbsenceModel
-from sdm_ml.gp.utils import find_starting_z
 from sklearn.preprocessing import StandardScaler
+from sdm_ml.gp.utils import find_starting_z, predict_with_link
 
 
 # TODO: Maybe allow for a more flexible kernel etc.
 
 class SingleOutputGP(PresenceAbsenceModel):
 
-    def __init__(self, num_inducing=100, opt_steps=1000, verbose=False):
+    def __init__(self, num_inducing=100, opt_steps=1000, verbose=False,
+                 n_draws_pred=4000):
 
         self.models = list()
         self.scaler = None
         self.num_inducing = num_inducing
         self.opt_steps = opt_steps
         self.verbose = verbose
+        self.n_draws_pred = n_draws_pred
 
     def fit(self, X, y):
 
@@ -50,10 +52,12 @@ class SingleOutputGP(PresenceAbsenceModel):
 
         for m in self.models:
 
-            # Just use the mean to predict for now (think about doing something
-            # cleverer!)
             means, variances = m.predict_f(X)
-            pred_mean_prob = np.squeeze(norm.cdf(means))
+            means, variances = np.squeeze(means), np.squeeze(variances)
+            draws = predict_with_link(means, variances, link_fun=norm.cdf
+                                      samples=self.n_draws_pred)
+
+            pred_mean_prob = np.mean(draws, axis=0)
             predictions.append(pred_mean_prob)
 
         return np.stack(predictions, axis=1)
