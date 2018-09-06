@@ -54,8 +54,8 @@ class SingleOutputGP(PresenceAbsenceModel):
 
             means, variances = m.predict_f(X)
             means, variances = np.squeeze(means), np.squeeze(variances)
-            draws = predict_with_link(means, variances, link_fun=norm.cdf
-                                      samples=self.n_draws_pred)
+            draws = predict_with_link(means, variances, link_fun=norm.cdf,
+                                      n_samples=self.n_draws_pred)
 
             pred_mean_prob = np.mean(draws, axis=0)
             predictions.append(pred_mean_prob)

@@ -46,4 +46,4 @@ class LogisticRegression(PresenceAbsenceModel):
     def save_parameters(self, target_file):
 
         # Try to pickle the model objects
-        pickle.dump(self.models, open(target_file, 'w'))
+        pickle.dump(self.models, open(target_file, 'bw'))

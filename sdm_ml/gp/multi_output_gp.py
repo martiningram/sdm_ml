@@ -102,7 +102,7 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         # Make draws
         draws = predict_with_link(means, variances, link_fun=norm.cdf,
-                                  samples=n_draws_pred)
+                                  n_samples=self.n_draws_pred)
 
         pred_means = np.mean(draws, axis=0)
 
@@ -113,5 +113,5 @@ class MultiOutputGP(PresenceAbsenceModel):
 
     def save_parameters(self, target_file):
 
-        as_df = self.m.as_pandas_table()
+        as_df = self.model.as_pandas_table()
         as_df.to_pickle(target_file)

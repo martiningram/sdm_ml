@@ -1,5 +1,6 @@
-from sklearn.cluster import MiniBatchKMeans
+import numpy as np
 from scipy.stats import norm
+from sklearn.cluster import MiniBatchKMeans
 
 
 def find_starting_z(X, num_inducing):
