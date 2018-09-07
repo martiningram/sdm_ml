@@ -5,7 +5,7 @@ from tqdm import tqdm
 from scipy.stats import norm
 from sdm_ml.model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
-from sdm_ml.gp.utils import find_starting_z, predict_with_link
+from sdm_ml.gp.utils import find_starting_z, predict_and_summarise
 
 
 # TODO: Maybe allow for a more flexible kernel etc.
@@ -57,10 +57,10 @@ class SingleOutputGP(PresenceAbsenceModel):
 
             means, variances = m.predict_f(X)
             means, variances = np.squeeze(means), np.squeeze(variances)
-            draws = predict_with_link(means, variances, link_fun=norm.cdf,
-                                      n_samples=self.n_draws_pred)
+            pred_mean_prob = predict_and_summarise(
+                means, variances, link_fun=norm.cdf,
+                n_samples=self.n_draws_pred)
 
-            pred_mean_prob = np.mean(draws, axis=0)
             predictions.append(pred_mean_prob)
 
         return np.stack(predictions, axis=1)

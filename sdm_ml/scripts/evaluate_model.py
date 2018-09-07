@@ -10,7 +10,7 @@ from sdm_ml.gp.multi_output_gp import MultiOutputGP
 dataset = BBSDataset('/Users/ingramm/Projects/uni_melb/multi_species/'
                      'bbs/dataset/csv_bird_data')
 
-experiment_name = 'rerun_2018_9_6_rank_8_new_saving'
+experiment_name = 'fixed_lengthscale_gp'
 
 output_dir = os.path.join('experiments', experiment_name)
 
@@ -18,8 +18,10 @@ if not os.path.isdir(output_dir):
     os.makedirs(output_dir)
 
 for model_name, model in [
-    ('single_gp', SingleOutputGP()),
-    ('multi_gp', MultiOutputGP(verbose=True, opt_steps=500, rank=8)),
+    ('multi_gp', MultiOutputGP(verbose=True, opt_steps=500, rank=8,
+                               fixed_lengthscales=np.array(
+                                   [8.61,  5.29,  2.72, 13.08, 13.6 ,  7.77,
+                                    14.  ,  2.93]))),
     ('log_reg', LogisticRegression())
 ]:
 

@@ -15,8 +15,33 @@ def predict_with_link(means, variances, link_fun=norm.cdf, n_samples=4000):
     # Draws samples and apply link function.
     # Means: 1D array of means
     # variances: 1D array of variances (Note: variance, not standard deviation).
-    # TODO: This creates a big array of samples and then takes their mean. If
-    # "means" is very large, it may be better to do this in stages.
     sds = np.sqrt(variances)
     draws = norm.rvs(means, sds, size=(n_samples, means.shape[0]))
     return link_fun(draws)
+
+
+def predict_and_summarise(means, variances, link_fun=norm.cdf, n_samples=4000,
+                          chunk_into=1000):
+
+    pred_means = list()
+
+    # Chunk
+    num_pts = means.shape[0]
+    num_chunks = (num_pts // chunk_into) + 1
+
+    # E.g. 3 points, chunk size = 2. Then num_chunks = 1.
+    for cur_chunk in range(num_chunks):
+
+        cur_start = cur_chunk * chunk_into
+        cur_end = (cur_chunk + 1) * chunk_into
+
+        cur_means = means[cur_start:cur_end]
+        cur_vars = variances[cur_start:cur_end]
+
+        cur_predictions = predict_with_link(
+            cur_means, cur_vars, link_fun=link_fun, n_samples=n_samples)
+
+        cur_means = np.mean(cur_predictions, axis=0)
+        pred_means.append(cur_means)
+
+    return np.concatenate(pred_means)

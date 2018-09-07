@@ -4,13 +4,13 @@ from tqdm import tqdm
 from scipy.stats import norm
 from sdm_ml.model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
-from sdm_ml.gp.utils import find_starting_z, predict_with_link
+from sdm_ml.gp.utils import find_starting_z, predict_and_summarise
 
 
 class MultiOutputGP(PresenceAbsenceModel):
 
     def __init__(self, num_inducing=100, opt_steps=1000, n_draws_pred=4000,
-                 verbose=False, rank=3):
+                 verbose=False, rank=3, fixed_lengthscales=None):
 
         self.model = None
         self.scaler = None
@@ -21,6 +21,7 @@ class MultiOutputGP(PresenceAbsenceModel):
         self.verbose = verbose
         self.rank = rank
         self.n_draws_pred = n_draws_pred
+        self.fixed_lengthscales = fixed_lengthscales
 
     @staticmethod
     def prepare_stacked_features(X, n_out):
@@ -57,9 +58,18 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         self.n_out = y.shape[1]
 
+        kernel_args = dict()
+        kernel_args['ARD'] = True
+
+        if self.fixed_lengthscales is not None:
+            kernel_args['lengthscales'] = self.fixed_lengthscales
+
         # Prepare kernel
         k1 = gpflow.kernels.RBF(X.shape[1], active_dims=range(X.shape[1]),
-                                ARD=True)
+                                **kernel_args)
+
+        if self.fixed_lengthscales is not None:
+            k1.lengthscales.set_trainable(False)
 
         coreg = gpflow.kernels.Coregion(
             1, output_dim=self.n_out, rank=self.rank, active_dims=[X.shape[1]])
@@ -84,6 +94,10 @@ class MultiOutputGP(PresenceAbsenceModel):
         coreg = self.model.kern.children['kernels'][1]
         coreg.W = np.random.randn(self.n_out, self.rank)
 
+        if self.verbose:
+            print(self.model.as_pandas_table())
+            print(k1.as_pandas_table()['trainable'])
+
         gpflow.train.ScipyOptimizer().minimize(
             self.model, maxiter=self.opt_steps, disp=self.verbose)
 
@@ -100,11 +114,8 @@ class MultiOutputGP(PresenceAbsenceModel):
         means, variances = self.model.predict_f(x_stacked)
         means, variances = np.squeeze(means), np.squeeze(variances)
 
-        # Make draws
-        draws = predict_with_link(means, variances, link_fun=norm.cdf,
-                                  n_samples=self.n_draws_pred)
-
-        pred_means = np.mean(draws, axis=0)
+        pred_means = predict_and_summarise(
+            means, variances, link_fun=norm.cdf, n_samples=self.n_draws_pred)
 
         # Reshape back using Fortran ordering
         pred_probs = pred_means.reshape((-1, self.n_out), order='F')
