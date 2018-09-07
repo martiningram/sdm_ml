@@ -1,10 +1,14 @@
 import os
 import numpy as np
 import pandas as pd
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 
 
 class Dataset(ABC):
+
+    @abstractproperty
+    def species_names(self):
+        pass
 
     @abstractmethod
     def get_training_set(self):
@@ -20,7 +24,6 @@ class BBSDataset(Dataset):
     def __init__(self, csv_folder, bio_covariates_only=True, max_outcomes=None):
 
         self.csv_folder = csv_folder
-
         self.covariates = self.read_from_folder('x')
 
         if bio_covariates_only:
@@ -37,6 +40,10 @@ class BBSDataset(Dataset):
         self.in_train = np.squeeze(self.in_train.values)
 
         self.lat_lon = self.read_from_folder('latlon')
+
+    @property
+    def species_names(self):
+        return self.outcomes.columns
 
     @staticmethod
     def read_csv_iso_encoded(csv):
