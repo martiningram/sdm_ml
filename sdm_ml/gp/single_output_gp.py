@@ -1,3 +1,4 @@
+import os
 import gpflow
 import numpy as np
 import pandas as pd
@@ -65,7 +66,9 @@ class SingleOutputGP(PresenceAbsenceModel):
 
         return np.stack(predictions, axis=1)
 
-    def save_parameters(self, target_file, names=None):
+    def save_parameters(self, target_folder, names=None):
+
+        self.create_folder(target_folder)
 
         model_dfs = [x.as_pandas_table() for x in self.models]
         names = range(len(model_dfs)) if names is None else names
@@ -75,4 +78,4 @@ class SingleOutputGP(PresenceAbsenceModel):
             cur_df['name'] = cur_name
 
         combined = pd.concat(model_dfs)
-        combined.to_pickle(target_file)
+        combined.to_pickle(os.path.join(target_folder, 'single_output_gp.pkl'))

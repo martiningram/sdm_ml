@@ -32,7 +32,7 @@ for model_name, model in [
     evaluator = Evaluator(dataset)
     results = evaluator.evaluate_model(model)
     results.to_csv(os.path.join(output_dir, '{}.csv'.format(model_name)))
-    model.save_parameters(os.path.join(output_dir, '{}.pkl'.format(model_name)))
+    model.save_parameters(os.path.join(output_dir, model_name))
     names = dataset.get_training_set()['outcomes'].columns
 
     # Make maps

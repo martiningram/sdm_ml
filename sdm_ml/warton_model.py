@@ -8,7 +8,7 @@ from python_tools.paths import get_cur_script_path
 from python_tools.utils import load_stan_model_cached
 
 
-class WartonModel(object):
+class WartonModel(PresenceAbsenceModel):
 
     def __init__(self, n_latents=4):
 
@@ -64,7 +64,9 @@ class WartonModel(object):
         # here.
         return site_means
 
-    def save_parameters(self, target_file):
+    def save_parameters(self, target_folder):
+
+        self.create_folder(target_folder)
 
         # Store the model samples
         samples = self.fit.extract()
@@ -73,7 +75,7 @@ class WartonModel(object):
         # Store the output of the print method
         print_file = os.path.join(target_folder, 'fit_results.txt')
         with open(print_file, 'w') as f:
-            print(model_fit, file=f)
+            print(self.fit, file=f)
 
         # Store the samples of the implied covariance matrix
         cov_samples = np.matmul(

@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 
 
@@ -34,13 +35,21 @@ class PresenceAbsenceModel(ABC):
         pass
 
     @abstractmethod
-    def save_parameters(self, target_file, **kwargs):
-        """ Saves model parameters in the target file.
+    def save_parameters(self, target_folder, **kwargs):
+        """ Saves model parameters to files in the target folder.
 
         Args:
-            target_file (str): Where to save the model parameters [filename].
+            target_file (str): Where to save the model parameters [folder name].
 
         Returns:
-            Nothing, but stores model parameters in a file at the path given.
+            Nothing, but stores model parameters in files in a folder at the
+            path given.
         """
         pass
+
+    @staticmethod
+    def create_folder(folder):
+
+        # A convenience function to create a folder if it does not exist
+        if not os.path.isdir(folder):
+            os.makedirs(folder)

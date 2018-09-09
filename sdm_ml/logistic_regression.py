@@ -1,3 +1,4 @@
+import os
 import pickle
 import numpy as np
 from tqdm import tqdm
@@ -43,7 +44,10 @@ class LogisticRegression(PresenceAbsenceModel):
 
         return np.stack(predictions, axis=1)
 
-    def save_parameters(self, target_file):
+    def save_parameters(self, target_folder):
 
-        # Try to pickle the model objects
-        pickle.dump(self.models, open(target_file, 'bw'))
+        self.create_folder(target_folder)
+
+        # Pickle the model objects
+        pickle.dump(self.models, open(
+            os.path.join(target_folder, 'params.pkl'), 'bw'))

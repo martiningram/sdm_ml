@@ -1,3 +1,4 @@
+import os
 import gpflow
 import numpy as np
 from tqdm import tqdm
@@ -122,7 +123,9 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         return pred_probs
 
-    def save_parameters(self, target_file):
+    def save_parameters(self, target_folder):
+
+        self.create_folder(target_folder)
 
         as_df = self.model.as_pandas_table()
-        as_df.to_pickle(target_file)
+        as_df.to_pickle(os.path.join(target_folder, 'multi_output_gp.pkl'))
