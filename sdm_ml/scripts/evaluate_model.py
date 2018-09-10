@@ -9,11 +9,9 @@ from sdm_ml.warton_model import WartonModel
 from sdm_ml.maps import produce_maps
 
 
-dataset = BBSDataset('/Users/ingramm/Projects/uni_melb/multi_species/'
-                     'bbs/dataset/csv_bird_data',
-                     max_outcomes=2)
+dataset = BBSDataset('/home/ingramm/projects/bbs/csv_bird_data/')
 
-experiment_name = 'warton'
+experiment_name = 'warton_full'
 
 output_dir = os.path.join('experiments', experiment_name)
 
@@ -25,8 +23,8 @@ for model_name, model in [
 #                                fixed_lengthscales=np.array(
 #                                    [8.61,  5.29,  2.72, 13.08, 13.6 ,  7.77,
 #                                     14.  ,  2.93]))),
-    ('log_reg', LogisticRegression()),
-    ('warton', WartonModel(n_latents=2))
+    ('warton', WartonModel(n_latents=8)),
+    ('log_reg', LogisticRegression())
 ]:
 
     evaluator = Evaluator(dataset)
