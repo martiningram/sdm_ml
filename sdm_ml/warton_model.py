@@ -30,6 +30,9 @@ class WartonModel(PresenceAbsenceModel):
 
         X = self.scaler.fit_transform(X)
 
+        # We need to add on an intercept term
+        X = np.concatenate([X, np.ones((X.shape[0], 1))], axis=1)
+
         # Prepare stan dict
         stan_dict = {
             'n': X.shape[0],
@@ -45,6 +48,8 @@ class WartonModel(PresenceAbsenceModel):
     def predict(self, X):
 
         X = self.scaler.transform(X)
+
+        X = np.concatenate([X, np.ones((X.shape[0], 1))], axis=1)
 
         # X is [N, P].
         # beta_1 should be of shape [S, P, K], where P is the number of
