@@ -25,11 +25,9 @@ def predict_and_summarise(means, variances, link_fun=norm.cdf, n_samples=4000,
 
     pred_means = list()
 
-    # Chunk
     num_pts = means.shape[0]
     num_chunks = (num_pts // chunk_into) + 1
 
-    # E.g. 3 points, chunk size = 2. Then num_chunks = 1.
     for cur_chunk in range(num_chunks):
 
         cur_start = cur_chunk * chunk_into
