@@ -6,6 +6,7 @@ from scipy.special import expit
 from sdm_ml.model import PresenceAbsenceModel
 from python_tools.paths import get_cur_script_path
 from python_tools.utils import load_stan_model_cached
+from sklearn.preprocessing import StandardScaler
 
 
 class WartonModel(PresenceAbsenceModel):
@@ -21,7 +22,13 @@ class WartonModel(PresenceAbsenceModel):
         self.stan_model = load_stan_model_cached(stan_path)
         self.n_latents = n_latents
 
+        self.scaler = None
+
     def fit(self, X, y):
+
+        self.scaler = StandardScaler()
+
+        X = self.scaler.fit_transform(X)
 
         # Prepare stan dict
         stan_dict = {
@@ -36,6 +43,8 @@ class WartonModel(PresenceAbsenceModel):
         self.fit = self.stan_model.sampling(data=stan_dict)
 
     def predict(self, X):
+
+        X = self.scaler.transform(X)
 
         # X is [N, P].
         # beta_1 should be of shape [S, P, K], where P is the number of
