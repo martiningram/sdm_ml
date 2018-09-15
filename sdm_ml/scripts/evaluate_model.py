@@ -4,27 +4,29 @@ from sdm_ml.dataset import BBSDataset
 from sdm_ml.evaluator import Evaluator
 from sdm_ml.logistic_regression import LogisticRegression
 from sdm_ml.gp.single_output_gp import SingleOutputGP
-from sdm_ml.gp.multi_output_gp import MultiOutputGP
+from sdm_ml.gp.icm_multi_gp import ICMMultiGP
+from sdm_ml.gp.lmc_multi_gp import LMCMultiGP
+from sdm_ml.gp.new_style_multi_gp import NewStyleMultiGP
 from sdm_ml.warton_model import WartonModel
+from sdm_ml.gp.warton_gp import WartonGP
 from sdm_ml.maps import produce_maps
 
 
-dataset = BBSDataset('/home/ingramm/projects/bbs/csv_bird_data/')
+dataset = BBSDataset('/Users/ingramm/Projects/uni_melb/multi_species/'
+                     'bbs/dataset/csv_bird_data',
+                     max_outcomes=32)
 
-experiment_name = 'warton_full'
+experiment_name = 'warton_gp_test'
 
 output_dir = os.path.join('experiments', experiment_name)
+
+make_maps = False
 
 if not os.path.isdir(output_dir):
     os.makedirs(output_dir)
 
 for model_name, model in [
-#     ('multi_gp', MultiOutputGP(verbose=True, opt_steps=500, rank=8,
-#                                fixed_lengthscales=np.array(
-#                                    [8.61,  5.29,  2.72, 13.08, 13.6 ,  7.77,
-#                                     14.  ,  2.93]))),
-    ('warton', WartonModel(n_latents=8)),
-    ('log_reg', LogisticRegression())
+    ('warton_gp', WartonGP(verbose=True, opt_steps=500, rank=4))
 ]:
 
     evaluator = Evaluator(dataset)
@@ -34,7 +36,8 @@ for model_name, model in [
     names = dataset.get_training_set()['outcomes'].columns
 
     # Make maps
-    produce_maps(dataset, model, os.path.join(
-        output_dir, '{}_maps'.format(model_name)))
+    if make_maps:
+        produce_maps(dataset, model, os.path.join(
+            output_dir, '{}_maps'.format(model_name)))
 
 np.save(os.path.join(output_dir, 'names'), np.array(names))
