@@ -41,7 +41,7 @@ class WartonGP(MultiOutputGP):
             white_kern.variance = 1
             white_kern.variance.set_trainable(False)
 
-        kern = main_kern# + (coreg * white_kern)
+        kern = main_kern + (coreg * white_kern)
 
         # TODO: Lots of copying here from the ICM model. Fix.
         lik = gpflow.likelihoods.Bernoulli()

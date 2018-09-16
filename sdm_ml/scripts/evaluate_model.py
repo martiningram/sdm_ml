@@ -14,7 +14,7 @@ from sdm_ml.maps import produce_maps
 
 dataset = BBSDataset('/Users/ingramm/Projects/uni_melb/multi_species/'
                      'bbs/dataset/csv_bird_data',
-                     max_outcomes=32)
+                     max_outcomes=8)
 
 experiment_name = 'warton_gp_test'
 
