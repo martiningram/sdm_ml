@@ -9,9 +9,10 @@ from dgplib.specialized_kernels import SwitchedKernel
 class WartonGP(MultiOutputGP):
 
     def __init__(self, rank=16, num_inducing=100, opt_steps=500,
-                 n_draws_pred=4000, verbose=False):
+                 n_draws_pred=4000, verbose=False, minibatch_size=None):
 
         self.rank = rank
+        self.minibatch_size = minibatch_size
 
         super(WartonGP, self).__init__(num_inducing=num_inducing,
                                        opt_steps=opt_steps,
@@ -54,13 +55,22 @@ class WartonGP(MultiOutputGP):
         stacked_x, stacked_y = self.prepare_stacked_data(X, y)
         Z = find_starting_z(stacked_x, self.num_inducing)
 
-        np.savez('/tmp/debug', stacked_x=stacked_x, stacked_y=stacked_y, Z=Z)
-
         self.model = gpflow.models.SVGP(stacked_x, stacked_y.astype(np.float64),
-                                        kern=kern, likelihood=lik, Z=Z)
+                                        kern=kern, likelihood=lik, Z=Z,
+                                        minibatch_size=self.minibatch_size)
 
         if self.verbose:
             print(self.model.as_pandas_table())
 
-        gpflow.train.ScipyOptimizer().minimize(
-            self.model, maxiter=self.opt_steps, disp=self.verbose)
+        if self.minibatch_size is None:
+            # Use L-BFGS
+            gpflow.train.ScipyOptimizer().minimize(
+                self.model, maxiter=self.opt_steps, disp=self.verbose)
+        else:
+            # Use Adam
+            def callback(x):
+                if x % 10 == 0 and self.verbose:
+                    print(x, self.model.compute_log_likelihood() +
+                          self.model.compute_log_prior())
+            gpflow.train.AdamOptimizer().minimize(
+                self.model, maxiter=self.opt_steps, step_callback=callback)
