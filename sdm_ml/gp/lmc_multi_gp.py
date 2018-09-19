@@ -11,9 +11,9 @@ class LMCMultiGP(MultiOutputGP):
                  n_draws_pred=4000, verbose=False):
 
         self.ranks = ranks
+        self.num_inducing = num_inducing
 
-        super(LMCMultiGP, self).__init__(num_inducing=num_inducing,
-                                         opt_steps=opt_steps,
+        super(LMCMultiGP, self).__init__(opt_steps=opt_steps,
                                          n_draws_pred=n_draws_pred,
                                          verbose=verbose)
 
