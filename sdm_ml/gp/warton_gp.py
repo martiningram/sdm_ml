@@ -8,22 +8,16 @@ from dgplib.specialized_kernels import SwitchedKernel
 
 class WartonGP(MultiOutputGP):
 
-<<<<<<< HEAD
-    def __init__(self, rank=16, num_inducing=100, opt_steps=500,
-                 n_draws_pred=4000, verbose=False, use_rbf=False):
-
-        self.rank = rank
-        self.use_rbf = use_rbf
-=======
     def __init__(self, rank=16, inducing_per_class=3, opt_steps=500,
-                 n_draws_pred=4000, verbose=False, minibatch_size=None):
+                 n_draws_pred=4000, verbose=False, minibatch_size=None,
+                 use_rbf=False):
 
         # TODO: No need for opt_steps to be part of the parent class.
 
         self.rank = rank
         self.minibatch_size = minibatch_size
         self.inducing_per_class = inducing_per_class
->>>>>>> e45b1928644615ae0af9c0cc025b4b6ed21d62a0
+        self.use_rbf = use_rbf
 
         super(WartonGP, self).__init__(opt_steps=opt_steps,
                                        n_draws_pred=n_draws_pred,
