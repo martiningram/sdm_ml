@@ -9,9 +9,10 @@ from dgplib.specialized_kernels import SwitchedKernel
 class WartonGP(MultiOutputGP):
 
     def __init__(self, rank=16, num_inducing=100, opt_steps=500,
-                 n_draws_pred=4000, verbose=False):
+                 n_draws_pred=4000, verbose=False, use_rbf=False):
 
         self.rank = rank
+        self.use_rbf = use_rbf
 
         super(WartonGP, self).__init__(num_inducing=num_inducing,
                                        opt_steps=opt_steps,
@@ -25,11 +26,20 @@ class WartonGP(MultiOutputGP):
         self.n_out = y.shape[1]
         n_predictors = X.shape[1]
 
-        # Get the kernel
+        # Kernel args are the same for RBF and linear kernels:
+        kernel_args = dict(input_dim=n_predictors,
+                           ARD=True,
+                           active_dims=range(n_predictors))
 
-        kernels = [gpflow.kernels.Linear(
-            n_predictors, ARD=True, active_dims=range(n_predictors)) +
-            gpflow.kernels.Bias(1) for _ in range(self.n_out)]
+        if self.use_rbf:
+            # Use the RBF kernel
+            kernels = [gpflow.kernels.RBF(**kernel_args) +
+                gpflow.kernels.Bias(1) for _ in range(self.n_out)]
+        else:
+            # Use a linear kernel
+            kernels = [gpflow.kernels.Linear(**kernel_args) +
+                gpflow.kernels.Bias(1) for _ in range(self.n_out)]
+
         main_kern = SwitchedKernel(kernels, self.n_out)
 
         with gpflow.defer_build():
@@ -53,8 +63,6 @@ class WartonGP(MultiOutputGP):
         # Prepare data for kernel
         stacked_x, stacked_y = self.prepare_stacked_data(X, y)
         Z = find_starting_z(stacked_x, self.num_inducing)
-
-        np.savez('/tmp/debug', stacked_x=stacked_x, stacked_y=stacked_y, Z=Z)
 
         self.model = gpflow.models.SVGP(stacked_x, stacked_y.astype(np.float64),
                                         kern=kern, likelihood=lik, Z=Z)
