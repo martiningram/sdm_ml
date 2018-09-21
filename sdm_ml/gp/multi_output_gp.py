@@ -9,14 +9,12 @@ from sdm_ml.gp.utils import predict_and_summarise
 
 class MultiOutputGP(PresenceAbsenceModel):
 
-    def __init__(self, num_inducing=100, opt_steps=1000, n_draws_pred=4000,
-                 verbose=False):
+    def __init__(self, opt_steps=1000, n_draws_pred=4000, verbose=False):
 
         self.model = None
         self.scaler = None
         self.n_out = None
 
-        self.num_inducing = num_inducing
         self.opt_steps = opt_steps
         self.verbose = verbose
         self.n_draws_pred = n_draws_pred

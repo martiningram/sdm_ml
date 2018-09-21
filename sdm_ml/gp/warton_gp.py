@@ -8,14 +8,24 @@ from dgplib.specialized_kernels import SwitchedKernel
 
 class WartonGP(MultiOutputGP):
 
+<<<<<<< HEAD
     def __init__(self, rank=16, num_inducing=100, opt_steps=500,
                  n_draws_pred=4000, verbose=False, use_rbf=False):
 
         self.rank = rank
         self.use_rbf = use_rbf
+=======
+    def __init__(self, rank=16, inducing_per_class=3, opt_steps=500,
+                 n_draws_pred=4000, verbose=False, minibatch_size=None):
 
-        super(WartonGP, self).__init__(num_inducing=num_inducing,
-                                       opt_steps=opt_steps,
+        # TODO: No need for opt_steps to be part of the parent class.
+
+        self.rank = rank
+        self.minibatch_size = minibatch_size
+        self.inducing_per_class = inducing_per_class
+>>>>>>> e45b1928644615ae0af9c0cc025b4b6ed21d62a0
+
+        super(WartonGP, self).__init__(opt_steps=opt_steps,
                                        n_draws_pred=n_draws_pred,
                                        verbose=verbose)
 
@@ -60,15 +70,38 @@ class WartonGP(MultiOutputGP):
         self.scaler = StandardScaler()
         X = self.scaler.fit_transform(X)
 
+        # Find inducing points before stacking
+        class_z = find_starting_z(X, self.inducing_per_class)
+        Z = list()
+
+        for cur_class in range(self.n_out):
+
+            to_add = np.repeat(cur_class, self.inducing_per_class).reshape(
+                -1, 1)
+            cur_z = np.concatenate([class_z, to_add], axis=1)
+            Z.append(cur_z)
+
+        Z = np.concatenate(Z)
+
         # Prepare data for kernel
         stacked_x, stacked_y = self.prepare_stacked_data(X, y)
-        Z = find_starting_z(stacked_x, self.num_inducing)
 
-        self.model = gpflow.models.SVGP(stacked_x, stacked_y.astype(np.float64),
-                                        kern=kern, likelihood=lik, Z=Z)
+        self.model = gpflow.models.SVGP(
+            stacked_x, stacked_y.astype(np.float64), kern=kern, likelihood=lik,
+            Z=Z, minibatch_size=self.minibatch_size)
 
         if self.verbose:
             print(self.model.as_pandas_table())
 
-        gpflow.train.ScipyOptimizer().minimize(
-            self.model, maxiter=self.opt_steps, disp=self.verbose)
+        if self.minibatch_size is None:
+            # Use L-BFGS
+            gpflow.train.ScipyOptimizer().minimize(
+                self.model, maxiter=self.opt_steps, disp=self.verbose)
+        else:
+            # Use Adam
+            def callback(x):
+                if x % 10 == 0 and self.verbose:
+                    print(x, self.model.compute_log_likelihood() +
+                          self.model.compute_log_prior())
+            gpflow.train.AdamOptimizer().minimize(
+                self.model, maxiter=self.opt_steps, step_callback=callback)

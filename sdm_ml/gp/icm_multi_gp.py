@@ -12,9 +12,9 @@ class ICMMultiGP(MultiOutputGP):
 
         self.rank = rank
         self.fixed_lengthscales = fixed_lengthscales
+        self.num_inducing = num_inducing
 
-        super(ICMMultiGP, self).__init__(num_inducing=num_inducing,
-                                         opt_steps=opt_steps,
+        super(ICMMultiGP, self).__init__(opt_steps=opt_steps,
                                          n_draws_pred=n_draws_pred,
                                          verbose=verbose)
 
