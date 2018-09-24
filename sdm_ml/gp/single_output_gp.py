@@ -16,7 +16,7 @@ from sdm_ml.gp.utils import find_starting_z, predict_and_summarise
 class SingleOutputGP(PresenceAbsenceModel):
 
     def __init__(self, num_inducing=100, opt_steps=1000, verbose=False,
-                 n_draws_pred=4000):
+                 n_draws_pred=4000, add_bias_kernel=False):
 
         self.models = list()
         self.scaler = None
@@ -24,6 +24,7 @@ class SingleOutputGP(PresenceAbsenceModel):
         self.opt_steps = opt_steps
         self.verbose = verbose
         self.n_draws_pred = n_draws_pred
+        self.add_bias_kernel = add_bias_kernel
 
     def fit(self, X, y):
 
@@ -35,6 +36,9 @@ class SingleOutputGP(PresenceAbsenceModel):
 
             cur_outcomes = y[:, i].astype(np.float64).reshape(-1, 1)
             cur_kernel = gpflow.kernels.RBF(input_dim=X.shape[1], ARD=True)
+
+            if add_bias_kernel:
+                cur_kernel += gpflow.kernels.Bias()
 
             # TODO: May be able to move this outside the loop.
             cur_likelihood = gpflow.likelihoods.Bernoulli()
