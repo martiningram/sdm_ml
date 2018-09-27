@@ -19,7 +19,6 @@ class SingleOutputGP(PresenceAbsenceModel):
     def __init__(self, num_inducing=100, opt_steps=1000, verbose=False,
                  n_draws_pred=4000, add_bias_kernel=True):
 
-        self.models = list()
         self.scaler = None
         self.num_inducing = num_inducing
         self.opt_steps = opt_steps
@@ -29,6 +28,7 @@ class SingleOutputGP(PresenceAbsenceModel):
 
     def fit(self, X, y):
 
+        self.models = list()
         self.scaler = StandardScaler()
         X = self.scaler.fit_transform(X)
         Z = find_starting_z(X, self.num_inducing)
