@@ -16,7 +16,7 @@ from sdm_ml.gp.utils import find_starting_z, predict_and_summarise
 class SingleOutputGP(PresenceAbsenceModel):
 
     def __init__(self, num_inducing=100, opt_steps=1000, verbose=False,
-                 n_draws_pred=4000, add_bias_kernel=False):
+                 n_draws_pred=4000, add_bias_kernel=True):
 
         self.models = list()
         self.scaler = None
