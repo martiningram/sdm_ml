@@ -11,7 +11,8 @@ from sdm_ml.gp.utils import find_starting_z, predict_and_summarise
 
 # TODO: Maybe allow for a more flexible kernel etc.
 # FIXME: This gets slower and slower the more models are fit. Not sure why, but
-# it is probably to do with the fact that I create a new model object each time.
+# it is probably to do with the fact that I create a new model object each
+# time.
 
 class SingleOutputGP(PresenceAbsenceModel):
 
@@ -37,8 +38,8 @@ class SingleOutputGP(PresenceAbsenceModel):
             cur_outcomes = y[:, i].astype(np.float64).reshape(-1, 1)
             cur_kernel = gpflow.kernels.RBF(input_dim=X.shape[1], ARD=True)
 
-            if add_bias_kernel:
-                cur_kernel += gpflow.kernels.Bias()
+            if self.add_bias_kernel:
+                cur_kernel += gpflow.kernels.Bias(1)
 
             # TODO: May be able to move this outside the loop.
             cur_likelihood = gpflow.likelihoods.Bernoulli()
@@ -48,6 +49,9 @@ class SingleOutputGP(PresenceAbsenceModel):
 
             gpflow.train.ScipyOptimizer().minimize(m, maxiter=self.opt_steps,
                                                    disp=self.verbose)
+
+            if self.verbose:
+                print(m.kern.as_pandas_table())
 
             self.models.append(m)
 
