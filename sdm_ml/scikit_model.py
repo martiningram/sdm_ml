@@ -7,12 +7,11 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegressionCV
 
 
-class LogisticRegression(PresenceAbsenceModel):
+class ScikitModel(PresenceAbsenceModel):
 
-    # TODO: Make this more general, so that any scikit learn model is accepted.
-    # TODO: Add logging in a proper way.
-    def __init__(self):
+    def __init__(self, model_fun=LogisticRegressionCV):
 
+        self.model_fun = model_fun
         self.models = list()
         self.scaler = None
 
@@ -25,7 +24,7 @@ class LogisticRegression(PresenceAbsenceModel):
 
         # We need to fit the marginals for this multi-species problem.
         for i in tqdm(range(y.shape[1])):
-            cur_model = LogisticRegressionCV()
+            cur_model = self.model_fun()
             cur_model.fit(X, y[:, i])
             self.models.append(cur_model)
 
