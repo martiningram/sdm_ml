@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import log_loss, average_precision_score
 
 
 class Evaluator(object):
@@ -9,18 +9,18 @@ class Evaluator(object):
 
         self.dataset = dataset
 
-    @staticmethod
-    def log_loss(y_t, y_p):
-        # Calculates the negative mean log likelihood
+    # @staticmethod
+    # def log_loss(y_t, y_p):
+    #     # Calculates the negative mean log likelihood
 
-        pre_log = y_p.copy()
-        did_not_happen = y_t == 0
-        pre_log[did_not_happen] = 1 - pre_log[did_not_happen]
+    #     pre_log = y_p.copy()
+    #     did_not_happen = y_t == 0
+    #     pre_log[did_not_happen] = 1 - pre_log[did_not_happen]
 
-        log_likelihoods = np.log(pre_log)
-        mean = np.mean(log_likelihoods)
+    #     log_likelihoods = np.log(pre_log)
+    #     mean = np.mean(log_likelihoods)
 
-        return -mean
+    #     return -mean
 
     def evaluate_model(self, model):
 
@@ -43,17 +43,20 @@ class Evaluator(object):
         for cur_species in y_p.columns:
 
             predictions = y_p[cur_species].values
-            truth = y_t[cur_species].values
+            truth = y_t[cur_species].values.astype(int)
 
-            log_loss = self.log_loss(truth, predictions)
+            lloss = log_loss(truth, predictions, labels=np.array([0, 1]))
 
             # TODO: Make sure I got that right!
-            deviance = log_loss * 2 * predictions.shape[0]
+            deviance = lloss * 2 * predictions.shape[0]
 
             cur_metrics = {
-                'log_loss': self.log_loss(truth, predictions),
+                'log_loss': log_loss(truth, predictions,
+                                     labels=np.array([0, 1])),
                 'species': cur_species,
-                'deviance': deviance
+                'deviance': deviance,
+                'average_precision': average_precision_score(
+                    truth, predictions)
             }
 
             results.append(cur_metrics)
