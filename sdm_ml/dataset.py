@@ -21,10 +21,13 @@ class Dataset(ABC):
 
 class BBSDataset(Dataset):
 
-    def __init__(self, csv_folder, bio_covariates_only=True, max_outcomes=None):
+    def __init__(self, csv_folder, bio_covariates_only=True,
+                 max_outcomes=None):
 
         self.csv_folder = csv_folder
         self.covariates = self.read_from_folder('x')
+        self.species_info = self.read_from_folder('species.data')
+        self.species_info.index = self.species_info.index.str.replace('_', ' ')
 
         if bio_covariates_only:
             # Remove non-bio covariates
@@ -33,8 +36,13 @@ class BBSDataset(Dataset):
 
         self.outcomes = self.read_from_folder('route.presence.absence')
 
+        # Ensure we have species information for all of the species
+        assert(all([x in self.species_info.index for x in
+                    self.outcomes.columns]))
+
         if max_outcomes is not None:
-            self.outcomes = self.outcomes[self.outcomes.columns[:max_outcomes]]
+            self.outcomes = self.outcomes[
+                self.outcomes.columns[:max_outcomes]]
 
         self.in_train = self.read_from_folder('in.train')
         self.in_train = np.squeeze(self.in_train.values)
