@@ -13,13 +13,14 @@ from gpflow.multioutput import SeparateMixedMok, MixedKernelSharedMof
 class NewStyleMultiGP(PresenceAbsenceModel):
 
     def __init__(self, num_inducing=100, opt_steps=500, verbose=False,
-                 n_draws_pred=4000, L=8):
+                 n_draws_pred=4000, L=8, use_variance_prior=True):
 
         self.num_inducing = num_inducing
         self.opt_steps = opt_steps
         self.verbose = verbose
         self.n_draws_pred = n_draws_pred
         self.L = L
+        self.use_variance_prior = use_variance_prior
 
     def fit(self, X, y):
 
@@ -33,15 +34,24 @@ class NewStyleMultiGP(PresenceAbsenceModel):
 
             kern_list = []
 
-            for _ in range(self.L):
+            for _ in range(self.L - 1):
 
                 cur_kern = gpflow.kernels.RBF(
                     n_pred, active_dims=range(n_pred), ARD=True)
 
-                cur_kern.variance.prior = gpflow.priors.Gamma(2, 3)
+                if self.use_variance_prior:
+                    cur_kern.variance.prior = gpflow.priors.Gamma(2, 3)
+
                 kern_list.append(cur_kern)
 
-        kern = SeparateMixedMok(kern_list, W=np.random.randn(P, self.L))
+            # Add a bias kernel
+            final_kern = gpflow.kernels.Bias(1)
+            final_kern.variance.prior = gpflow.priors.Gamma(2, 3)
+            kern_list.append(final_kern)
+
+            kern = SeparateMixedMok(kern_list, W=np.random.randn(P, self.L))
+            kern.W.prior = gpflow.priors.Gaussian(0, 1)
+
         lik = gpflow.likelihoods.Bernoulli()
         inducing = find_starting_z(X, self.num_inducing)
 

@@ -224,9 +224,9 @@ class DTCGaussianProcessHMC(PresenceAbsenceModel):
         lengthscales = tf.exp(lengthscales)
 
         # PRIORS
-        alpha_prior = tfp.distributions.InverseGamma(3., 5.)
-        lengthscale_prior = tfp.distributions.InverseGamma(3., 5.)
-        bias_prior = tfp.distributions.Normal(0., 1.)
+        alpha_prior = tfp.distributions.HalfNormal(3.)
+        lengthscale_prior = tfp.distributions.InverseGamma(5., 5.)
+        bias_prior = tfp.distributions.Normal(0., 5.)
         u_prior = tf.distributions.Normal(0., 1.)
 
         log_prior = (

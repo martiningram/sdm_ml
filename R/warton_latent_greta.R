@@ -105,24 +105,22 @@ log_likelihood <- function(y_pred, y_true) {
   species_log_lik
 }
 
+source('./get_data.R')
+
 bird_path <- "/Users/ingramm/Projects/uni_melb/multi_species/bbs/dataset/csv_bird_data/"
 target_path <- './experiments/warton_greta/'
 dir.create(file.path(target_path), showWarnings = FALSE)
-in_train <- read.csv(paste0(bird_path, 'in.train.csv'), row.names = 1)
-pres_abs <- read.csv(paste0(bird_path, 'route.presence.absence.csv'), 
-                     row.names = 1)
-x <- read.csv(paste0(bird_path, 'x.csv'))
-in_train <- in_train$x
 
-train_x <- x[in_train, ]
+# TODO: Test whether this refactoring actually works!
+data <- load_bbs_data(bird_path)
 
-cols <- colnames(x)
-is_bio <- grepl('bio', cols)
-bio_cols <- cols[is_bio]
+train_x <- data[['train_x']]
+train_y <- data[['train_y']]
+test_y <- data[['test_y']]
+holdout_x <- data[['test_x']]
 
 # Scale it
-scaled_bio <- scale(train_x[, bio_cols])
-holdout_x <- x[!in_train, bio_cols]
+scaled_bio <- scale(train_x)
 
 scaled_holdout <- scale(holdout_x, center = attr(scaled_bio, 'scaled:center'),
                         scale = attr(scaled_bio, 'scaled:scale'))
@@ -133,10 +131,6 @@ scaled_holdout <- cbind(scaled_holdout,
                         intercept = rep(1, nrow(scaled_holdout)))
 
 species <- colnames(pres_abs)
-
-# Fit only a few birds to start with
-train_y <- data.matrix(pres_abs[in_train, species])
-test_y <- data.matrix(pres_abs[!in_train, species])
 
 fit_result <- fit(scaled_bio, train_y, n_latents = 8, n_samples = 1000)
 

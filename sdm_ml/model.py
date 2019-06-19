@@ -9,8 +9,8 @@ class PresenceAbsenceModel(ABC):
         """ Fits a PresenceAbsenceModel.
 
         Args:
-            X (np.array): An NxM matrix, with N the number of training rows, and
-                M the number of covariates.
+            X (np.array): An NxM matrix, with N the number of training rows,
+                and M the number of covariates.
             y (np.array): A binary NxK matrix, with N the number of training
                 rows and K the number of species considered. Entry [i, j] is 1
                 if species j was observed at site i, and zero otherwise.
@@ -39,7 +39,8 @@ class PresenceAbsenceModel(ABC):
         """ Saves model parameters to files in the target folder.
 
         Args:
-            target_file (str): Where to save the model parameters [folder name].
+            target_file (str): Where to save the model parameters
+                [folder name].
 
         Returns:
             Nothing, but stores model parameters in files in a folder at the
