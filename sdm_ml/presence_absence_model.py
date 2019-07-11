@@ -21,7 +21,7 @@ class PresenceAbsenceModel(ABC):
         pass
 
     @abstractmethod
-    def predict_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
+    def predict_log_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
         """ Predicts marginal probabilities using the PresenceAbsenceModel.
 
         Args:
@@ -29,8 +29,8 @@ class PresenceAbsenceModel(ABC):
                the number of covariates.
 
         Returns:
-            A numpy array of shape [N, K] filled with marginal probabilities of
-            presence for each of the K species.
+            A numpy array of shape [N, K, 2] filled with marginal log
+            probabilities of absence and presence for each of the K species.
         """
         pass
 
@@ -64,3 +64,18 @@ class PresenceAbsenceModel(ABC):
             path given.
         """
         pass
+
+    def predict_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
+        """A convenience function which predicts the marginal probabilities
+        of presence (not on the log scale).
+
+        Args:
+            X: The data to predict in an NxM matrix with N sites, M covariates.
+
+        Returns:
+            An array of size NxK, where K is the number of species.
+        """
+
+        log_probs = self.predict_log_marginal_probabilities(X)
+        presence_probs = np.exp(log_probs[..., 1])
+        return presence_probs

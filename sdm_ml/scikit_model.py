@@ -2,7 +2,7 @@ import os
 import pickle
 import numpy as np
 from tqdm import tqdm
-from sdm_ml.model import PresenceAbsenceModel
+from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegressionCV
 
@@ -28,7 +28,7 @@ class ScikitModel(PresenceAbsenceModel):
             cur_model.fit(X, y[:, i])
             self.models.append(cur_model)
 
-    def predict(self, X):
+    def predict_log_marginal_probabilities(self, X):
 
         assert(len(self.models) > 0)
         predictions = list()
@@ -37,16 +37,27 @@ class ScikitModel(PresenceAbsenceModel):
 
         for cur_model in self.models:
 
-            cur_predictions = cur_model.predict_proba(X)
-            prob_present = cur_predictions[:, 1]
-            predictions.append(prob_present)
+            cur_predictions = cur_model.predict_log_proba(X)
+            predictions.append(cur_predictions)
 
         return np.stack(predictions, axis=1)
 
-    def save_parameters(self, target_folder):
+    def save_model(self, target_folder):
 
-        self.create_folder(target_folder)
+        os.makedirs(target_folder, exist_ok=True)
 
         # Pickle the model objects
         pickle.dump(self.models, open(
-            os.path.join(target_folder, 'params.pkl'), 'bw'))
+            os.path.join(target_folder, 'models.pkl'), 'bw'))
+
+    def calculate_log_likelihood(self, X, y):
+        # TODO: Make sure this is correct!
+
+        # Predict marginal probabilities
+        predictions = self.predict_log_marginal_probabilities(X)
+
+        # Calculate log likelihood at each
+        point_wise = y * predictions[..., 1] + (1 - y) * predictions[..., 0]
+
+        # Sum across sites
+        return np.sum(point_wise, axis=1)
