@@ -236,8 +236,7 @@ class MultiOutputGP(PresenceAbsenceModel):
             cur_test_x = X[cur_test_ind]
             cur_test_y = y[cur_test_ind]
 
-            log_liks = model.estimate_log_likelihood(cur_test_x, cur_test_y,
-                                                     n_samples=1000)
+            log_liks = model.calculate_log_likelihood(cur_test_x, cur_test_y)
 
             fold_liks[i] = np.sum(log_liks)
 
