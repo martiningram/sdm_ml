@@ -9,7 +9,7 @@ from ml_tools.utils import create_path_with_variables
 
 
 base_save_dir = './experiments/cv_gpflow/'
-test_run = True
+test_run = False
 
 dataset = BBSDataset(os.environ['BBS_PATH'])
 
@@ -32,7 +32,8 @@ def create_model(n_kernels, n_inducing):
         n_dims=X.shape[1], n_kernels=n_kernels, n_outputs=y.shape[1])
 
     return MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
-                         kernel=kern, maxiter=maxiter)
+                         kernel=kern, maxiter=maxiter, 
+                         n_draws_predict=int(1E3))
 
 
 grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [20, 100]}
