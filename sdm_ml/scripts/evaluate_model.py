@@ -1,6 +1,6 @@
 import os
-from os.path import join
 import numpy as np
+from os.path import join
 from tqdm import tqdm
 
 from sdm_ml.dataset import BBSDataset
