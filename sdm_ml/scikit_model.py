@@ -2,14 +2,16 @@ import os
 import pickle
 import numpy as np
 from tqdm import tqdm
-from sdm_ml.presence_absence_model import PresenceAbsenceModel
+from functools import partial
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegressionCV
+
+from sdm_ml.presence_absence_model import PresenceAbsenceModel
 
 
 class ScikitModel(PresenceAbsenceModel):
 
-    def __init__(self, model_fun=LogisticRegressionCV):
+    def __init__(self, model_fun=partial(LogisticRegressionCV, cv=4)):
 
         self.model_fun = model_fun
         self.models = list()

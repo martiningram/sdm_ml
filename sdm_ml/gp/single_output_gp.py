@@ -1,8 +1,10 @@
 import os
 import gpflow
 import numpy as np
+from tqdm import tqdm
 from os.path import join
 
+from sklearn.preprocessing import StandardScaler
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from .utils import (find_starting_z, calculate_log_joint_bernoulli_likelihood,
                     save_gpflow_model, log_probability_via_sampling)
@@ -20,6 +22,7 @@ class SingleOutputGP(PresenceAbsenceModel):
         self.maxiter = maxiter
         self.verbose_fit = verbose_fit
         self.n_draws_predict = n_draws_predict
+        self.scaler = None
 
     @staticmethod
     def build_default_kernel(n_dims, add_bias=True):
@@ -31,13 +34,16 @@ class SingleOutputGP(PresenceAbsenceModel):
 
     def fit(self, X, y):
 
+        self.scaler = StandardScaler()
+        X = self.scaler.fit_transform(X)
+
         Z = find_starting_z(X, num_inducing=self.n_inducing,
                             use_minibatching=False)
 
         self.models = list()
 
         # We need to fit each species separately
-        for cur_output in range(y.shape[1]):
+        for cur_output in tqdm(range(y.shape[1])):
 
             cur_kernel = self.kernel_function()
             cur_likelihood = gpflow.likelihoods.Bernoulli()
@@ -54,9 +60,15 @@ class SingleOutputGP(PresenceAbsenceModel):
 
             self.models.append(cur_m)
 
+        self.is_fit = True
+
     def predict_log_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
         # TODO: Check against GPFlow.
         # TODO: Is this really worth it? Could just use predict_y.
+
+        assert self.is_fit
+
+        X = self.scaler.transform(X)
 
         # Run the prediction for each model
         results = list()
@@ -68,7 +80,7 @@ class SingleOutputGP(PresenceAbsenceModel):
             f_std = np.sqrt(f_var)
 
             result = log_probability_via_sampling(
-                f_mean, f_std, self.n_draws_predict)
+                np.squeeze(f_mean), np.squeeze(f_std), self.n_draws_predict)
 
             results.append(result)
 
@@ -78,7 +90,11 @@ class SingleOutputGP(PresenceAbsenceModel):
 
     def calculate_log_likelihood(self, X, y):
 
+        assert self.is_fit
+
         assert y.shape[1] == len(self.models)
+
+        X = self.scaler.transform(X)
 
         means, sds = list(), list()
 
