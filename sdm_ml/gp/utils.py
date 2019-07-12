@@ -1,5 +1,6 @@
 import os
 import gpflow
+import numpy as np
 from scipy.stats import norm
 from scipy.special import logsumexp
 from sklearn.cluster import MiniBatchKMeans, KMeans
@@ -25,6 +26,26 @@ def calculate_log_joint_bernoulli_likelihood(latent_prob_samples: np.ndarray,
 
     # Compute the Monte Carlo expectation
     return logsumexp(individual_liks - np.log(n_samples))
+
+
+def log_probability_via_sampling(means: np.ndarray, stdevs: np.ndarray,
+                                 n_draws: int) -> np.ndarray:
+
+    # TODO: Currently expects means and stdevs to be 1D. Maybe could do n-d.
+    # TODO: This could really do with the odd unit test.
+
+    draws = np.random.normal(means, stdevs, size=(
+        n_draws, means.shape[0]))
+
+    # OK, now to do the logsumexp trick.
+    pre_factor = -np.log(n_draws)
+    presence_log_probs = norm.logcdf(draws)
+    absence_log_probs = norm.logcdf(-draws)
+
+    presence_results = logsumexp(pre_factor + presence_log_probs, axis=0)
+    absence_results = logsumexp(pre_factor + absence_log_probs, axis=0)
+
+    return np.stack([absence_results, presence_results], axis=1)
 
 
 def find_starting_z(X, num_inducing, use_minibatching=False):

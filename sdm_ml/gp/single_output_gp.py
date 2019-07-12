@@ -1,10 +1,11 @@
 import os
 import gpflow
+import numpy as np
 from os.path import join
-from scipy.stats import norm
-from scipy.special import logsumexp
+
+from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from .utils import (find_starting_z, calculate_log_joint_bernoulli_likelihood,
-                    save_gpflow_model)
+                    save_gpflow_model, log_probability_via_sampling)
 
 
 class SingleOutputGP(PresenceAbsenceModel):
@@ -20,9 +21,18 @@ class SingleOutputGP(PresenceAbsenceModel):
         self.verbose_fit = verbose_fit
         self.n_draws_predict = n_draws_predict
 
+    @staticmethod
+    def build_default_kernel(n_dims, add_bias=True):
+        # This can be curried to produce the kernel function required.
+        kernel = gpflow.kernels.RBF(input_dim=n_dims, ARD=True)
+        kernel += gpflow.kernels.Bias(1)
+
+        return kernel
+
     def fit(self, X, y):
 
-        Z = find_starting_z(X, num_inducing=n_inducing, use_minibatching=False)
+        Z = find_starting_z(X, num_inducing=self.n_inducing,
+                            use_minibatching=False)
 
         self.models = list()
 
@@ -53,26 +63,14 @@ class SingleOutputGP(PresenceAbsenceModel):
 
         for cur_model in self.models:
 
-           # Predict f, the latent probability on the probit scale
-           f_mean, f_var = cur_model.predict_f(X)
-           f_std = np.sqrt(f_var)
+            # Predict f, the latent probability on the probit scale
+            f_mean, f_var = cur_model.predict_f(X)
+            f_std = np.sqrt(f_var)
 
-           # TODO:
-           # This is a bit of a balance. Predict all at once, or not?
-           # I think here, all at once is OK. But it could blow up if the
-           # number of examples is large.
-           # Could use numba or something to do it on a per-site basis,
-           # or chunk.
-           draws = np.random.normal(
-               f_mean, f_std, size=(self.n_draws_predict, f_mean.shape[0]))
+            result = log_probability_via_sampling(
+                f_mean, f_std, self.n_draws_predict)
 
-           # OK, now to do the logsumexp trick.
-           pre_factor = -np.log(self.n_draws_predict)
-           draw_log_probs = norm.logcdf(draws)
-
-           result = logsumexp(pre_factor + draw_log_probs, axis=0)
-
-           results.append(result)
+            results.append(result)
 
         results = np.stack(results, axis=1)
 
