@@ -15,8 +15,7 @@ from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from ml_tools.utils import load_pickle_safely
 from autograd_gp.gpflow.helpers import load_saved_gpflow_model
 from autograd_gp.gpflow.helpers import compute_latent_predictions
-from autograd_gp.evaluation.likelihood import \
-    calculate_log_joint_bernoulli_likelihood
+from .utils import calculate_log_joint_bernoulli_likelihood
 
 
 class MultiOutputGP(PresenceAbsenceModel):
