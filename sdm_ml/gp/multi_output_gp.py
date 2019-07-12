@@ -75,7 +75,13 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         assert self.is_fit
 
+        if self.verbose_fit:
+            print('Calculating mean and covariance...')
+
         means, covs = self.get_f_mean_and_cov(X)
+
+        if self.verbose_fit:
+            print('Done.')
 
         log_liks = np.zeros(means.shape[0])
 
