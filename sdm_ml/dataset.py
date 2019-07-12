@@ -1,8 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from abc import ABC, abstractmethod, abstractproperty
+from typing import NamedTuple
+from abc import ABC, abstractproperty
 
 
 class Dataset(ABC):
@@ -19,12 +19,13 @@ class Dataset(ABC):
     def test_set(self):
         pass
 
-@dataclass
-class SpeciesData:
+
+class SpeciesData(NamedTuple):
 
     covariates: pd.DataFrame
     outcomes: pd.DataFrame
     lat_lon: pd.DataFrame = None
+
 
 class BBSDataset(Dataset):
 
