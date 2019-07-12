@@ -5,13 +5,16 @@ from tqdm import tqdm
 from functools import partial
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegressionCV
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
 
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 
 
 class ScikitModel(PresenceAbsenceModel):
 
-    def __init__(self, model_fun=partial(LogisticRegressionCV, cv=4)):
+    def __init__(self, model_fun=partial(LogisticRegressionCV, cv=4,
+                                         max_iter=int(1E4))):
 
         self.model_fun = model_fun
         self.models = list()
@@ -30,6 +33,17 @@ class ScikitModel(PresenceAbsenceModel):
             cur_model.fit(X, y[:, i])
             self.models.append(cur_model)
 
+    @staticmethod
+    def create_cross_validated_forest():
+
+        search = GridSearchCV(RandomForestClassifier(), param_grid={
+            'n_estimators': [50, 100, 250, 500, 1000],
+            'max_depth': [None, 1, 2, 5],
+            'max_features': [int(np.sqrt(8)), 2, 4]}, n_jobs=-1,
+            cv=4, scoring="neg_log_loss")
+
+        return search
+
     def predict_log_marginal_probabilities(self, X):
 
         assert(len(self.models) > 0)
@@ -45,6 +59,8 @@ class ScikitModel(PresenceAbsenceModel):
         return np.stack(predictions, axis=1)
 
     def save_model(self, target_folder):
+        # TODO: Might be better to save these individually rather than all
+        # at once?
 
         os.makedirs(target_folder, exist_ok=True)
 

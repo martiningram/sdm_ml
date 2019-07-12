@@ -1,43 +1,32 @@
 import os
+from os.path import join
 import numpy as np
+from tqdm import tqdm
+
 from sdm_ml.dataset import BBSDataset
-from sdm_ml.evaluator import Evaluator
-from sdm_ml.logistic_regression import LogisticRegression
-from sdm_ml.gp.single_output_gp import SingleOutputGP
-from sdm_ml.gp.icm_multi_gp import ICMMultiGP
-from sdm_ml.gp.lmc_multi_gp import LMCMultiGP
-from sdm_ml.gp.new_style_multi_gp import NewStyleMultiGP
-from sdm_ml.warton_model import WartonModel
-from sdm_ml.gp.warton_gp import WartonGP
-from sdm_ml.maps import produce_maps
+from sdm_ml.scikit_model import ScikitModel
+from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 
 
-dataset = BBSDataset('/Users/ingramm/Projects/uni_melb/multi_species/'
-                     'bbs/dataset/csv_bird_data',
-                     max_outcomes=8)
+dataset = BBSDataset.init_using_env_variable()
+training_set = dataset.training_set
+test_set = dataset.test_set
 
-experiment_name = 'warton_gp_test'
+experiment_name = 'new_style_run'
+output_dir = join('experiments', 'new_style', experiment_name)
+os.makedirs(output_dir, exist_ok=True)
 
-output_dir = os.path.join('experiments', experiment_name)
+models = {
+    'RandomForestCV': ScikitModel(ScikitModel.create_cross_validated_forest),
+    'LogRegCV': ScikitModel(),
+}
 
-make_maps = False
+for cur_name, cur_model in tqdm(models.items()):
 
-if not os.path.isdir(output_dir):
-    os.makedirs(output_dir)
+    cur_output_dir = join(output_dir, cur_name)
+    cur_model.fit(training_set.covariates.values,
+                  training_set.outcomes.values.astype(int))
+    compute_and_save_results_for_evaluation(test_set, cur_model,
+                                            cur_output_dir)
 
-for model_name, model in [
-    ('warton_gp', WartonGP(verbose=True, opt_steps=500, rank=4))
-]:
-
-    evaluator = Evaluator(dataset)
-    results = evaluator.evaluate_model(model)
-    results.to_csv(os.path.join(output_dir, '{}.csv'.format(model_name)))
-    model.save_parameters(os.path.join(output_dir, model_name))
-    names = dataset.get_training_set()['outcomes'].columns
-
-    # Make maps
-    if make_maps:
-        produce_maps(dataset, model, os.path.join(
-            output_dir, '{}_maps'.format(model_name)))
-
-np.save(os.path.join(output_dir, 'names'), np.array(names))
+np.save(join(output_dir, 'names'), test_set.outcomes.columns.values)

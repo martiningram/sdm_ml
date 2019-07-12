@@ -53,11 +53,13 @@ class BBSDataset(Dataset):
 
         self.in_train = self.read_from_folder('in.train')
         self.in_train = np.squeeze(self.in_train.values)
-
         self.lat_lon = self.read_from_folder('latlon')
 
+        self.outcomes = self.outcomes.astype(int)
+        self.covariates = self.covariates.astype(float)
+
     @classmethod
-    def import_using_env_variable(cls):
+    def init_using_env_variable(cls):
 
         assert 'BBS_PATH' in os.environ
         return cls(os.environ['BBS_PATH'])
@@ -83,7 +85,8 @@ class BBSDataset(Dataset):
         train_outcomes = self.outcomes.loc[self.in_train, :]
         train_lat_lon = self.lat_lon[self.in_train]
 
-        return SpeciesData(covariates=train_cov, outcomes=train_outcomes,
+        return SpeciesData(covariates=train_cov,
+                           outcomes=train_outcomes,
                            lat_lon=train_lat_lon)
 
     @property
@@ -93,5 +96,6 @@ class BBSDataset(Dataset):
         test_outcomes = self.outcomes.loc[~self.in_train, :]
         test_lat_lon = self.lat_lon[~self.in_train]
 
-        return SpeciesData(covariates=test_cov, outcomes=test_outcomes,
+        return SpeciesData(covariates=test_cov,
+                           outcomes=test_outcomes,
                            lat_lon=test_lat_lon)
