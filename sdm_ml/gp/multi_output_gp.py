@@ -80,7 +80,18 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         log_liks = np.zeros(means.shape[0])
 
-        for i, (cur_mean, cur_cov, cur_y) in enumerate(zip(means, covs, y)):
+        if self.verbose_fit:
+
+            print('Estimating log likelihood.')
+            y_it = tqdm(y)
+
+        else:
+
+            y_it = y
+
+
+        for i, (cur_mean, cur_cov, cur_y) in enumerate(
+                zip(means, covs, y_it)):
 
             draws = np.random.multivariate_normal(
                 cur_mean, cur_cov, size=self.n_draws_predict)
