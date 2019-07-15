@@ -26,17 +26,19 @@ else:
     maxiter = int(1E6)
 
 
-def create_model(n_kernels, n_inducing):
+def create_model(n_kernels, n_inducing, add_bias):
 
     kern = MultiOutputGP.build_default_kernel(
-        n_dims=X.shape[1], n_kernels=n_kernels, n_outputs=y.shape[1])
+        n_dims=X.shape[1], n_kernels=n_kernels, n_outputs=y.shape[1],
+        add_bias=add_bias)
 
     return MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
-                         kernel=kern, maxiter=maxiter, 
+                         kernel=kern, maxiter=maxiter,
                          n_draws_predict=int(1E3))
 
 
-grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [20, 100]}
+grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [20, 100, 200],
+        'add_bias': [True, False]}
 
 # Add on the date
 base_save_dir = join(base_save_dir,
@@ -46,42 +48,47 @@ i = 0
 
 scores = list()
 
-for cur_n_kernels in grid['n_kernels']:
+for cur_add_bias in grid['add_bias']:
 
-    for cur_n_inducing in grid['n_inducing']:
+    for cur_n_kernels in grid['n_kernels']:
 
-        start_time = time.time()
+        for cur_n_inducing in grid['n_inducing']:
 
-        print(f'On iteration {i}.')
+            start_time = time.time()
 
-        print(f'Running with {cur_n_kernels} kernels and {cur_n_inducing}'
-              f' inducing.')
+            print(f'On iteration {i}.')
 
-        model_fn = partial(create_model, n_kernels=cur_n_kernels,
-                           n_inducing=cur_n_inducing)
+            print(f'Running with {cur_n_kernels} kernels and {cur_n_inducing}'
+                  f' inducing and bias={cur_add_bias}.')
 
-        save_dir = create_path_with_variables(L=cur_n_kernels,
-                                              M=cur_n_inducing)
+            model_fn = partial(create_model, n_kernels=cur_n_kernels,
+                               n_inducing=cur_n_inducing,
+                               add_bias=cur_add_bias)
 
-        cur_score = MultiOutputGP.cross_val_score(X, y, model_fn, join(
-            base_save_dir, save_dir), n_folds=n_folds)
+            save_dir = create_path_with_variables(L=cur_n_kernels,
+                                                  M=cur_n_inducing)
 
-        scores.append({
-            'n_kernels': cur_n_kernels,
-            'n_inducing': cur_n_inducing,
-            'log_lik': cur_score,
-            'runtime': time.time() - start_time,
-            'n_folds': n_folds
-        })
+            cur_score = MultiOutputGP.cross_val_score(X, y, model_fn, join(
+                base_save_dir, save_dir), n_folds=n_folds)
 
-        pd.DataFrame(scores).to_csv(join(base_save_dir, 'cv_results_live.csv'))
+            scores.append({
+                'n_kernels': cur_n_kernels,
+                'n_inducing': cur_n_inducing,
+                'log_lik': cur_score,
+                'runtime': time.time() - start_time,
+                'n_folds': n_folds,
+                'add_bias': cur_add_bias
+            })
 
-        pd.Series(scores[-1]).to_csv(join(base_save_dir, save_dir,
-                                          'scores.csv'))
+            pd.DataFrame(scores).to_csv(join(base_save_dir,
+                                             'cv_results_live.csv'))
 
-        print(f'Iteration {i} result: {scores[-1]}')
+            pd.Series(scores[-1]).to_csv(join(base_save_dir, save_dir,
+                                            'scores.csv'))
 
-        i += 1
+            print(f'Iteration {i} result: {scores[-1]}')
 
-scores = pd.DataFrame(scores)
-scores.to_csv(join(base_save_dir, 'cv_results.csv'))
+            i += 1
+
+    scores = pd.DataFrame(scores)
+    scores.to_csv(join(base_save_dir, 'cv_results.csv'))
