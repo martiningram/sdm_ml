@@ -8,10 +8,11 @@ from sdm_ml.dataset import BBSDataset
 from sdm_ml.scikit_model import ScikitModel
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.gp.single_output_gp import SingleOutputGP
+from sdm_ml.gp.multi_output_gp import MultiOutputGP
 
 
-test_run = True
-max_outcomes = 3 if test_run else None
+test_run = False
+max_outcomes = 5 if test_run else None
 
 dataset = BBSDataset.init_using_env_variable(max_outcomes=max_outcomes)
 training_set = dataset.training_set
@@ -30,7 +31,18 @@ so_gp = SingleOutputGP(n_inducing=100, kernel_function=default_kernel_fun,
                        verbose_fit=False,
                        maxiter=10 if test_run else int(1E6))
 
+# Fetch multi output GP
+mogp_kernel = MultiOutputGP.build_default_kernel(
+    n_dims=training_set.covariates.shape[1],
+    n_kernels=4, n_outputs=training_set.outcomes.shape[1], add_bias=True,
+    priors=True)
+
+mogp = MultiOutputGP(n_inducing=100, n_latent=4, kernel=mogp_kernel,
+                     maxiter=10 if test_run else int(1E6))
+
+
 models = {
+    'Multi Output GP': mogp,
     'Single Output GP': so_gp,
     'RandomForestCV': ScikitModel(ScikitModel.create_cross_validated_forest),
     'LogRegCV': ScikitModel(),
