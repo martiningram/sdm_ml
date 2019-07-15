@@ -103,8 +103,8 @@ class SingleOutputGP(PresenceAbsenceModel):
             cur_mean, cur_vars = cur_model.predict_f(X)
             cur_sds = np.sqrt(cur_vars)
 
-            means.append(cur_mean)
-            sds.append(cur_sds)
+            means.append(np.squeeze(cur_mean))
+            sds.append(np.squeeze(cur_sds))
 
         means = np.stack(means, axis=1)
         sds = np.stack(sds, axis=1)

@@ -60,10 +60,10 @@ class BBSDataset(Dataset):
         self.covariates = self.covariates.astype(float)
 
     @classmethod
-    def init_using_env_variable(cls):
+    def init_using_env_variable(cls, **kwargs):
 
         assert 'BBS_PATH' in os.environ
-        return cls(os.environ['BBS_PATH'])
+        return cls(os.environ['BBS_PATH'], **kwargs)
 
     @property
     def species_names(self):
