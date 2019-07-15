@@ -14,11 +14,17 @@ from sdm_ml.presence_absence_model import PresenceAbsenceModel
 class ScikitModel(PresenceAbsenceModel):
 
     def __init__(self, model_fun=partial(LogisticRegressionCV, cv=4,
-                                         max_iter=int(1E4))):
+                                         max_iter=int(1E4)),
+                 clip_probs=True):
+
+        # Clip probs avoids assigning probabilities of exactly 1 or 0 to
+        # outcomes, in the same way as scikit learn does it for computing
+        # the log loss.
 
         self.model_fun = model_fun
         self.models = list()
         self.scaler = None
+        self.clip_probs = clip_probs
 
     def fit(self, X, y):
 
@@ -56,7 +62,12 @@ class ScikitModel(PresenceAbsenceModel):
             cur_predictions = cur_model.predict_log_proba(X)
             predictions.append(cur_predictions)
 
-        return np.stack(predictions, axis=1)
+        result = np.stack(predictions, axis=1)
+
+        if self.clip_probs:
+            result = np.clip(result, -15 * np.log(10), np.log(1 - 10**(-15)))
+
+        return result
 
     def save_model(self, target_folder):
         # TODO: Might be better to save these individually rather than all
