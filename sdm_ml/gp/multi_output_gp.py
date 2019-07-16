@@ -176,7 +176,7 @@ class MultiOutputGP(PresenceAbsenceModel):
                     cur_kern.lengthscales.prior = gpf.priors.Gamma(3, 3)
 
                     # TODO: This is probably too strong!
-                    # cur_kern.variance.prior = gpf.priors.Gaussian(0, 1)
+                    cur_kern.variance.prior = gpf.priors.Gaussian(0, 1)
 
             if add_bias:
                 kern_list[-1] = gpf.kernels.Bias(D, variance=1.0)
