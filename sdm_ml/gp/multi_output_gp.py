@@ -75,6 +75,8 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         assert self.is_fit
 
+        X = self.scaler.transform(X)
+
         if self.verbose_fit:
             print('Calculating mean and covariance...')
 
@@ -112,6 +114,8 @@ class MultiOutputGP(PresenceAbsenceModel):
         # single-output GP.
         # Predict mean and variances for all species.
         # I expect these to be (n_sites x n_species).
+        X = self.scaler.transform(X)
+
         means, vars = self.m.predict_f(X)
 
         all_log_probs = list()

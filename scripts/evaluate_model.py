@@ -9,6 +9,7 @@ from sdm_ml.scikit_model import ScikitModel
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.gp.single_output_gp import SingleOutputGP
 from sdm_ml.gp.multi_output_gp import MultiOutputGP
+from ml_tools.utils import create_path_with_variables
 
 
 test_run = False
@@ -18,7 +19,7 @@ dataset = BBSDataset.init_using_env_variable(max_outcomes=max_outcomes)
 training_set = dataset.training_set
 test_set = dataset.test_set
 
-experiment_name = 'new_style_run_test'
+experiment_name = create_path_with_variables(test_run=test_run)
 output_dir = join('experiments', 'new_style', experiment_name)
 os.makedirs(output_dir, exist_ok=True)
 
@@ -32,21 +33,24 @@ so_gp = SingleOutputGP(n_inducing=100, kernel_function=default_kernel_fun,
                        maxiter=10 if test_run else int(1E6))
 
 # Fetch multi output GP
+n_kernels = 8
 mogp_kernel = MultiOutputGP.build_default_kernel(
     n_dims=training_set.covariates.shape[1],
-    n_kernels=4, n_outputs=training_set.outcomes.shape[1], add_bias=True,
-    priors=True)
+    n_kernels=n_kernels, n_outputs=training_set.outcomes.shape[1],
+    add_bias=True, priors=True)
 
-mogp = MultiOutputGP(n_inducing=100, n_latent=4, kernel=mogp_kernel,
+mogp = MultiOutputGP(n_inducing=100, n_latent=n_kernels, kernel=mogp_kernel,
                      maxiter=10 if test_run else int(1E6))
 
 
 models = {
     'Multi Output GP': mogp,
-    'Single Output GP': so_gp,
     'RandomForestCV': ScikitModel(ScikitModel.create_cross_validated_forest),
     'LogRegCV': ScikitModel(),
+    'Single Output GP': so_gp,
 }
+
+np.save(join(output_dir, 'names'), test_set.outcomes.columns.values)
 
 for cur_name, cur_model in tqdm(models.items()):
 
@@ -55,5 +59,3 @@ for cur_name, cur_model in tqdm(models.items()):
                   training_set.outcomes.values.astype(int))
     compute_and_save_results_for_evaluation(test_set, cur_model,
                                             cur_output_dir)
-
-np.save(join(output_dir, 'names'), test_set.outcomes.columns.values)

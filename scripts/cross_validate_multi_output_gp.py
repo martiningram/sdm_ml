@@ -1,5 +1,6 @@
 import os
 import time
+import gpflow
 import pandas as pd
 from os.path import join
 from functools import partial
@@ -37,7 +38,7 @@ def create_model(n_kernels, n_inducing, add_bias):
                          n_draws_predict=int(1E3))
 
 
-grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [20, 100, 200],
+grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [20, 100],
         'add_bias': [True, False]}
 
 # Add on the date
@@ -54,6 +55,8 @@ for cur_add_bias in grid['add_bias']:
 
         for cur_n_inducing in grid['n_inducing']:
 
+            gpflow.reset_default_graph_and_session()
+
             start_time = time.time()
 
             print(f'On iteration {i}.')
@@ -66,7 +69,8 @@ for cur_add_bias in grid['add_bias']:
                                add_bias=cur_add_bias)
 
             save_dir = create_path_with_variables(L=cur_n_kernels,
-                                                  M=cur_n_inducing)
+                                                  M=cur_n_inducing,
+                                                  add_bias=cur_add_bias)
 
             cur_score = MultiOutputGP.cross_val_score(X, y, model_fn, join(
                 base_save_dir, save_dir), n_folds=n_folds)
