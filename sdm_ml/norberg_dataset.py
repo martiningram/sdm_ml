@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from os.path import join
 from .dataset import Dataset, SpeciesData
@@ -9,10 +10,11 @@ class NorbergDataset(Dataset):
     def __init__(self, base_dir, dataset_name, cv_fold):
 
         # Make sure arguments make sense
-        assert dataset_name in ['birds', 'plant', 'vegetation', 'trees']
+        assert dataset_name in ['birds', 'plant', 'vegetation', 'trees',
+                                'butterfly']
         assert cv_fold in [1, 2, 3]
 
-        suffix = f'_{cv_fold}_{dataset_name}'
+        suffix = f'{cv_fold}_{dataset_name}'
 
         xt_file = join(base_dir, f'Xt_{suffix}.csv')
         yt_file = join(base_dir, f'Yt_{suffix}.csv')
@@ -37,8 +39,15 @@ class NorbergDataset(Dataset):
         self.test_covariates, self.test_outcomes, self.test_locations = [
             load_no_header(x) for x in [xv_file, yv_file, sv_file]]
 
+    @classmethod
+    def init_from_env_var(cls, dataset_name, cv_fold, **kwargs):
+
+        assert 'NORBERG_PATH' in os.environ
+
+        return cls(os.environ['NORBERG_PATH'], dataset_name, cv_fold, **kwargs)
+
     @property
-    def train_set(self):
+    def training_set(self):
 
         return SpeciesData(covariates=self.train_covariates,
                            outcomes=self.train_outcomes)
