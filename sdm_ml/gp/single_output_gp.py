@@ -25,10 +25,25 @@ class SingleOutputGP(PresenceAbsenceModel):
         self.scaler = None
 
     @staticmethod
-    def build_default_kernel(n_dims, add_bias=True):
+    def build_default_kernel(n_dims, add_bias=True, add_priors=True):
         # This can be curried to produce the kernel function required.
-        kernel = gpflow.kernels.RBF(input_dim=n_dims, ARD=True)
-        kernel += gpflow.kernels.Bias(1)
+
+        with gpflow.defer_build():
+
+            kernel = gpflow.kernels.RBF(input_dim=n_dims, ARD=True)
+
+            if add_priors:
+                kernel.lengthscales.prior = gpflow.priors.Gamma(3, 3)
+                kernel.variance.prior = gpflow.priors.Gamma(0.5, 2.)
+
+            if add_bias:
+                k2 = gpflow.kernels.Bias(1)
+
+                if add_priors:
+                    # Equivalent to a N(0, 5**2) prior on the standard
+                    # deviation.
+                    k2.variance.prior = gpflow.priors.Gamma(
+                        0.5, 2 * 5**2)
 
         return kernel
 

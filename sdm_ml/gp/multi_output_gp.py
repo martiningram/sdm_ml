@@ -96,7 +96,6 @@ class MultiOutputGP(PresenceAbsenceModel):
 
             y_it = y
 
-
         for i, (cur_mean, cur_cov, cur_y) in enumerate(
                 zip(means, covs, y_it)):
 
@@ -177,25 +176,28 @@ class MultiOutputGP(PresenceAbsenceModel):
 
             if priors:
                 for cur_kern in kern_list:
+                    # Stan uses an inverse-gamma distribution here, which I
+                    # could do too, but I would have to implement it in GPFlow.
                     cur_kern.lengthscales.prior = gpf.priors.Gamma(3, 3)
 
-                    # TODO: This is probably too strong!
-                    cur_kern.variance.prior = gpf.priors.Gaussian(0, 1)
+                    # This is equivalent to a half-normal prior on the standard
+                    # deviation.
+                    cur_kern.variance.prior = gpf.priors.Gamma(0.5, 2.)
 
             if add_bias:
                 kern_list[-1] = gpf.kernels.Bias(D, variance=1.0)
 
                 if priors:
-                    kern_list[-1].variance.prior = gpf.priors.Gaussian(
-                        0, 5**2)
+                    # Equivalent to a N(0, 5**2) prior on the standard
+                    # deviation.
+                    kern_list[-1].variance.prior = gpf.priors.Gamma(
+                        0.5, 2 * 5**2)
 
             W_init = np.random.randn(P, L)
             kernel = mk.SeparateMixedMok(kern_list, W_init)
 
             if priors:
 
-                # TODO: This may be too strong!
-                # I wish I could put a prior on the standard deviation...
                 kernel.W.prior = gpf.priors.Gaussian(0, 1)
 
         return kernel
