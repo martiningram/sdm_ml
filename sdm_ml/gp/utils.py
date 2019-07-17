@@ -1,9 +1,54 @@
+import os
+import gpflow
 import numpy as np
 from scipy.stats import norm
+from scipy.special import logsumexp
 from sklearn.cluster import MiniBatchKMeans, KMeans
 
 
-def find_starting_z(X, num_inducing, use_minibatching=True):
+def calculate_log_joint_bernoulli_likelihood(latent_prob_samples: np.ndarray,
+                                             outcomes: np.ndarray) -> float:
+    # latent_prob_samples is n_samples x n_outcomes array of probabilities on
+    # the probit scale
+    # outcomes is (n_outcomes,) array of binary outcomes (1 and 0)
+    assert(latent_prob_samples.shape[1] == outcomes.shape[0])
+
+    # Make sure broadcasting is unambiguous
+    assert(latent_prob_samples.shape[0] != outcomes.shape[0])
+
+    n_samples = latent_prob_samples.shape[0]
+
+    # Get log likelihood for each draw
+    individual_liks = np.sum(
+        outcomes * norm.logcdf(latent_prob_samples)
+        + (1 - outcomes) * norm.logcdf(-latent_prob_samples),
+        axis=1)
+
+    # Compute the Monte Carlo expectation
+    return logsumexp(individual_liks - np.log(n_samples))
+
+
+def log_probability_via_sampling(means: np.ndarray, stdevs: np.ndarray,
+                                 n_draws: int) -> np.ndarray:
+
+    # TODO: Currently expects means and stdevs to be 1D. Maybe could do n-d.
+    # TODO: This could really do with the odd unit test.
+
+    draws = np.random.normal(means, stdevs, size=(
+        n_draws, means.shape[0]))
+
+    # OK, now to do the logsumexp trick.
+    pre_factor = -np.log(n_draws)
+    presence_log_probs = norm.logcdf(draws)
+    absence_log_probs = norm.logcdf(-draws)
+
+    presence_results = logsumexp(pre_factor + presence_log_probs, axis=0)
+    absence_results = logsumexp(pre_factor + absence_log_probs, axis=0)
+
+    return np.stack([absence_results, presence_results], axis=1)
+
+
+def find_starting_z(X, num_inducing, use_minibatching=False):
     # Find starting locations for inducing points
 
     if use_minibatching:
@@ -17,35 +62,10 @@ def find_starting_z(X, num_inducing, use_minibatching=True):
     return Z
 
 
-def predict_with_link(means, variances, link_fun=norm.cdf, n_samples=4000):
-    # Draws samples and apply link function.
-    # Means: 1D array of means
-    # variances: 1D array of variances (Note: variance, not standard deviation).
-    sds = np.sqrt(variances)
-    draws = norm.rvs(means, sds, size=(n_samples, means.shape[0]))
-    return link_fun(draws)
+def save_gpflow_model(model_object, target_file, exist_ok=True):
 
+    if exist_ok and os.path.isfile(target_file):
+        os.remove(target_file)
 
-def predict_and_summarise(means, variances, link_fun=norm.cdf, n_samples=4000,
-                          chunk_into=1000):
-
-    pred_means = list()
-
-    num_pts = means.shape[0]
-    num_chunks = (num_pts // chunk_into) + 1
-
-    for cur_chunk in range(num_chunks):
-
-        cur_start = cur_chunk * chunk_into
-        cur_end = (cur_chunk + 1) * chunk_into
-
-        cur_means = means[cur_start:cur_end]
-        cur_vars = variances[cur_start:cur_end]
-
-        cur_predictions = predict_with_link(
-            cur_means, cur_vars, link_fun=link_fun, n_samples=n_samples)
-
-        cur_means = np.mean(cur_predictions, axis=0)
-        pred_means.append(cur_means)
-
-    return np.concatenate(pred_means)
+    saver = gpflow.saver.Saver()
+    saver.save(target_file, model_object)

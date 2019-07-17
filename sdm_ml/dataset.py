@@ -1,7 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
-from abc import ABC, abstractmethod, abstractproperty
+from typing import NamedTuple
+from abc import ABC, abstractproperty
 
 
 class Dataset(ABC):
@@ -10,13 +11,20 @@ class Dataset(ABC):
     def species_names(self):
         pass
 
-    @abstractmethod
-    def get_training_set(self):
+    @abstractproperty
+    def training_set(self):
         pass
 
-    @abstractmethod
-    def get_test_set(self):
+    @abstractproperty
+    def test_set(self):
         pass
+
+
+class SpeciesData(NamedTuple):
+
+    covariates: pd.DataFrame
+    outcomes: pd.DataFrame
+    lat_lon: pd.DataFrame = None
 
 
 class BBSDataset(Dataset):
@@ -46,8 +54,16 @@ class BBSDataset(Dataset):
 
         self.in_train = self.read_from_folder('in.train')
         self.in_train = np.squeeze(self.in_train.values)
-
         self.lat_lon = self.read_from_folder('latlon')
+
+        self.outcomes = self.outcomes.astype(int)
+        self.covariates = self.covariates.astype(float)
+
+    @classmethod
+    def init_using_env_variable(cls, **kwargs):
+
+        assert 'BBS_PATH' in os.environ
+        return cls(os.environ['BBS_PATH'], **kwargs)
 
     @property
     def species_names(self):
@@ -63,21 +79,24 @@ class BBSDataset(Dataset):
         return BBSDataset.read_csv_iso_encoded(
             os.path.join(self.csv_folder, csv_name + '.csv'))
 
-    def get_lat_lon(self):
-
-        return {'train': self.lat_lon.loc[self.in_train],
-                'test': self.lat_lon.loc[~self.in_train]}
-
-    def get_training_set(self):
+    @property
+    def training_set(self):
 
         train_cov = self.covariates.loc[self.in_train, :]
         train_outcomes = self.outcomes.loc[self.in_train, :]
+        train_lat_lon = self.lat_lon[self.in_train]
 
-        return {'covariates': train_cov, 'outcomes': train_outcomes}
+        return SpeciesData(covariates=train_cov,
+                           outcomes=train_outcomes,
+                           lat_lon=train_lat_lon)
 
-    def get_test_set(self):
+    @property
+    def test_set(self):
 
         test_cov = self.covariates.loc[~self.in_train, :]
         test_outcomes = self.outcomes.loc[~self.in_train, :]
+        test_lat_lon = self.lat_lon[~self.in_train]
 
-        return {'covariates': test_cov, 'outcomes': test_outcomes}
+        return SpeciesData(covariates=test_cov,
+                           outcomes=test_outcomes,
+                           lat_lon=test_lat_lon)

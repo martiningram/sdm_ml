@@ -1,89 +1,134 @@
 import os
 import gpflow
 import numpy as np
-import pandas as pd
 from tqdm import tqdm
-from scipy.stats import norm
-from sdm_ml.model import PresenceAbsenceModel
+from os.path import join
+
 from sklearn.preprocessing import StandardScaler
-from sdm_ml.gp.utils import find_starting_z, predict_and_summarise
+from sdm_ml.presence_absence_model import PresenceAbsenceModel
+from .utils import (find_starting_z, calculate_log_joint_bernoulli_likelihood,
+                    save_gpflow_model, log_probability_via_sampling)
 
-
-# TODO: Maybe allow for a more flexible kernel etc.
-# FIXME: This gets slower and slower the more models are fit. Not sure why, but
-# it is probably to do with the fact that I create a new model object each
-# time.
 
 class SingleOutputGP(PresenceAbsenceModel):
 
-    def __init__(self, num_inducing=100, opt_steps=1000, verbose=False,
-                 n_draws_pred=4000, add_bias_kernel=True):
+    def __init__(self, n_inducing, kernel_function, maxiter=int(1E6),
+                 verbose_fit=True, n_draws_predict=int(1E4)):
 
+        self.models = None
+        self.is_fit = False
+        self.kernel_function = kernel_function
+        self.n_inducing = n_inducing
+        self.maxiter = maxiter
+        self.verbose_fit = verbose_fit
+        self.n_draws_predict = n_draws_predict
         self.scaler = None
-        self.num_inducing = num_inducing
-        self.opt_steps = opt_steps
-        self.verbose = verbose
-        self.n_draws_pred = n_draws_pred
-        self.add_bias_kernel = add_bias_kernel
+
+    @staticmethod
+    def build_default_kernel(n_dims, add_bias=True):
+        # This can be curried to produce the kernel function required.
+        kernel = gpflow.kernels.RBF(input_dim=n_dims, ARD=True)
+        kernel += gpflow.kernels.Bias(1)
+
+        return kernel
 
     def fit(self, X, y):
 
-        self.models = list()
         self.scaler = StandardScaler()
         X = self.scaler.fit_transform(X)
-        Z = find_starting_z(X, self.num_inducing)
 
-        for i in tqdm(range(y.shape[1])):
+        Z = find_starting_z(X, num_inducing=self.n_inducing,
+                            use_minibatching=False)
 
-            cur_outcomes = y[:, i].astype(np.float64).reshape(-1, 1)
-            cur_kernel = gpflow.kernels.RBF(input_dim=X.shape[1], ARD=True)
+        self.models = list()
 
-            if self.add_bias_kernel:
-                cur_kernel += gpflow.kernels.Bias(1)
+        # We need to fit each species separately
+        for cur_output in tqdm(range(y.shape[1])):
 
-            # TODO: May be able to move this outside the loop.
+            cur_kernel = self.kernel_function()
             cur_likelihood = gpflow.likelihoods.Bernoulli()
 
-            m = gpflow.models.SVGP(X, cur_outcomes, kern=cur_kernel,
-                                   likelihood=cur_likelihood, Z=Z)
+            cur_y = y[:, [cur_output]]
 
-            gpflow.train.ScipyOptimizer().minimize(m, maxiter=self.opt_steps,
-                                                   disp=self.verbose)
+            cur_m = gpflow.models.SVGP(X, cur_y, kern=cur_kernel,
+                                       likelihood=cur_likelihood, Z=Z)
 
-            if self.verbose:
-                print(m.kern.as_pandas_table())
+            opt = gpflow.train.ScipyOptimizer(
+                options={'maxfun': self.maxiter})
 
-            self.models.append(m)
+            opt.minimize(cur_m, maxiter=self.maxiter, disp=self.verbose_fit)
 
-    def predict(self, X):
+            self.models.append(cur_m)
 
-        assert(len(self.models) > 0)
-        predictions = list()
+        self.is_fit = True
+
+    def predict_log_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
+        # TODO: Check against GPFlow.
+        # TODO: Is this really worth it? Could just use predict_y.
+
+        assert self.is_fit
 
         X = self.scaler.transform(X)
 
-        for m in self.models:
+        # Run the prediction for each model
+        results = list()
 
-            means, variances = m.predict_f(X)
-            means, variances = np.squeeze(means), np.squeeze(variances)
-            pred_mean_prob = predict_and_summarise(
-                means, variances, link_fun=norm.cdf,
-                n_samples=self.n_draws_pred)
+        for cur_model in self.models:
 
-            predictions.append(pred_mean_prob)
+            # Predict f, the latent probability on the probit scale
+            f_mean, f_var = cur_model.predict_f(X)
+            f_std = np.sqrt(f_var)
 
-        return np.stack(predictions, axis=1)
+            result = log_probability_via_sampling(
+                np.squeeze(f_mean), np.squeeze(f_std), self.n_draws_predict)
 
-    def save_parameters(self, target_folder, names=None):
+            results.append(result)
 
-        self.create_folder(target_folder)
+        results = np.stack(results, axis=1)
 
-        model_dfs = [x.as_pandas_table() for x in self.models]
-        names = range(len(model_dfs)) if names is None else names
-        assert(len(names) == len(model_dfs))
+        return results
 
-        for cur_name, cur_df in zip(names, model_dfs):
-            cur_df['name'] = cur_name
+    def calculate_log_likelihood(self, X, y):
 
-        combined = pd.concat(model_dfs)
-        combined.to_pickle(os.path.join(target_folder, 'single_output_gp.pkl'))
+        assert self.is_fit
+
+        assert y.shape[1] == len(self.models)
+
+        X = self.scaler.transform(X)
+
+        means, sds = list(), list()
+
+        for cur_model in self.models:
+
+            cur_mean, cur_vars = cur_model.predict_f(X)
+            cur_sds = np.sqrt(cur_vars)
+
+            means.append(np.squeeze(cur_mean))
+            sds.append(np.squeeze(cur_sds))
+
+        means = np.stack(means, axis=1)
+        sds = np.stack(sds, axis=1)
+
+        site_log_liks = np.zeros(means.shape[0])
+
+        # Estimate site by site
+        for i, (cur_y, cur_mean, cur_sd) in enumerate(zip(y, means, sds)):
+
+            draws = np.random.normal(
+                cur_mean, cur_sd, size=(self.n_draws_predict, means.shape[1]))
+
+            log_lik = calculate_log_joint_bernoulli_likelihood(draws, cur_y)
+
+            site_log_liks[i] = log_lik
+
+        return site_log_liks
+
+    def save_model(self, target_folder):
+
+        os.makedirs(target_folder, exist_ok=True)
+
+        for i, cur_model in enumerate(self.models):
+
+            target_file = join(target_folder, f'model_species_{i}')
+
+            save_gpflow_model(cur_model, target_file)
