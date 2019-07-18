@@ -38,7 +38,7 @@ def create_model(n_kernels, n_inducing, add_bias, mean_function):
                          n_draws_predict=int(1E3), mean_function=mean_function)
 
 
-grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [20, 100],
+grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [10, 20, 50],
         'add_bias': [False], 'mean_function': [True, False]}
 
 # Add on the date

@@ -33,21 +33,22 @@ so_gp = SingleOutputGP(n_inducing=100, kernel_function=default_kernel_fun,
                        maxiter=10 if test_run else int(1E6))
 
 # Fetch multi output GP
-n_kernels = 8
+n_kernels = 6
+n_inducing = 20
 mogp_kernel = MultiOutputGP.build_default_kernel(
     n_dims=training_set.covariates.shape[1],
     n_kernels=n_kernels, n_outputs=training_set.outcomes.shape[1],
     add_bias=True, priors=True)
 
-mogp = MultiOutputGP(n_inducing=100, n_latent=n_kernels, kernel=mogp_kernel,
-                     maxiter=10 if test_run else int(1E6))
+mogp = MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
+                     kernel=mogp_kernel, maxiter=10 if test_run else int(1E6))
 
 
 models = {
     'Multi Output GP': mogp,
-    'RandomForestCV': ScikitModel(ScikitModel.create_cross_validated_forest),
-    'LogRegCV': ScikitModel(),
-    'Single Output GP': so_gp,
+#     'RandomForestCV': ScikitModel(ScikitModel.create_cross_validated_forest),
+#     'LogRegCV': ScikitModel(),
+#     'Single Output GP': so_gp,
 }
 
 np.save(join(output_dir, 'names'), test_set.outcomes.columns.values)
