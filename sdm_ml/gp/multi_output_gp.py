@@ -24,7 +24,7 @@ class MultiOutputGP(PresenceAbsenceModel):
     def __init__(self, n_inducing, n_latent, kernel, maxiter=int(1E6),
                  train_inducing_points=True, seed=2, whiten=True,
                  verbose_fit=True, n_draws_predict=int(1E4),
-                 mean_function=None):
+                 mean_function=lambda: None):
 
         np.random.seed(seed)
 
