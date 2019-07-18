@@ -16,13 +16,15 @@ from ml_tools.utils import load_pickle_safely
 from autograd_gp.gpflow.helpers import load_saved_gpflow_model
 from autograd_gp.gpflow.helpers import compute_latent_predictions
 from .utils import calculate_log_joint_bernoulli_likelihood
+from .mean_functions import MultiOutputMeanFunction
 
 
 class MultiOutputGP(PresenceAbsenceModel):
 
     def __init__(self, n_inducing, n_latent, kernel, maxiter=int(1E6),
                  train_inducing_points=True, seed=2, whiten=True,
-                 verbose_fit=True, n_draws_predict=int(1E4)):
+                 verbose_fit=True, n_draws_predict=int(1E4),
+                 mean_function=None):
 
         np.random.seed(seed)
 
@@ -38,6 +40,7 @@ class MultiOutputGP(PresenceAbsenceModel):
         self.verbose_fit = verbose_fit
         self.m = None
         self.n_draws_predict = n_draws_predict
+        self.mean_function = mean_function
 
     def fit(self, X, y):
 
@@ -61,7 +64,8 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         self.m = gpf.models.SVGP(X, y, self.kernel,
                                  gpf.likelihoods.Bernoulli(), feat=feature,
-                                 q_mu=q_mu, q_sqrt=q_sqrt, whiten=self.whiten)
+                                 q_mu=q_mu, q_sqrt=q_sqrt, whiten=self.whiten,
+                                 mean_function=self.mean_function)
 
         self.m.feature.set_trainable(self.train_inducing_points)
 
@@ -158,6 +162,11 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         with open(join(target_folder, 'data.pkl'), 'wb') as f:
             pickle.dump(data_pickle, f)
+
+    @staticmethod
+    def build_default_mean_function(n_outputs):
+
+        return MultiOutputMeanFunction(n_outputs)
 
     @staticmethod
     def build_default_kernel(n_dims, n_kernels, n_outputs, add_bias=False,
