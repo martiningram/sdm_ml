@@ -38,8 +38,8 @@ def create_model(n_kernels, n_inducing, add_bias):
                          n_draws_predict=int(1E3))
 
 
-grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [20, 100],
-        'add_bias': [True, False]}
+grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [10, 20, 50],
+        'add_bias': [False, True]}
 
 # Add on the date
 base_save_dir = join(base_save_dir,
@@ -68,9 +68,9 @@ for cur_add_bias in grid['add_bias']:
                                n_inducing=cur_n_inducing,
                                add_bias=cur_add_bias)
 
-            save_dir = create_path_with_variables(L=cur_n_kernels,
-                                                  M=cur_n_inducing,
-                                                  add_bias=cur_add_bias)
+            save_dir = create_path_with_variables(
+                L=cur_n_kernels, M=cur_n_inducing, add_bias=cur_add_bias,
+                comment='new_priors_17-07-19')
 
             cur_score = MultiOutputGP.cross_val_score(X, y, model_fn, join(
                 base_save_dir, save_dir), n_folds=n_folds)
@@ -94,5 +94,5 @@ for cur_add_bias in grid['add_bias']:
 
             i += 1
 
-    scores = pd.DataFrame(scores)
-    scores.to_csv(join(base_save_dir, 'cv_results.csv'))
+scores = pd.DataFrame(scores)
+scores.to_csv(join(base_save_dir, 'cv_results.csv'))
