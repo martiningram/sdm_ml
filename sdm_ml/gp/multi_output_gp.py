@@ -65,7 +65,7 @@ class MultiOutputGP(PresenceAbsenceModel):
         self.m = gpf.models.SVGP(X, y, self.kernel,
                                  gpf.likelihoods.Bernoulli(), feat=feature,
                                  q_mu=q_mu, q_sqrt=q_sqrt, whiten=self.whiten,
-                                 mean_function=self.mean_function)
+                                 mean_function=self.mean_function())
 
         self.m.feature.set_trainable(self.train_inducing_points)
 

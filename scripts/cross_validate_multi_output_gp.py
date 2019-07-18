@@ -62,10 +62,10 @@ for cur_use_mean_function in grid['mean_function']:
                 gpflow.reset_default_graph_and_session()
 
                 if cur_use_mean_function:
-                    mean_function = MultiOutputGP.build_default_mean_function(
-                        y.shape[1])
+                    mean_function = partial(
+                        MultiOutputGP.build_default_mean_function, y.shape[1])
                 else:
-                    mean_function = None
+                    mean_function = lambda: None
 
                 start_time = time.time()
 
