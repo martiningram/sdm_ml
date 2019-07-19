@@ -24,7 +24,7 @@ if test_run:
     y = y[:200, :10]
     n_folds = 2
     maxiter = 100
-    bopt_maxiter = 5
+    bopt_maxiter = 2
 else:
     n_folds = 4
     maxiter = int(1E6)
@@ -60,8 +60,6 @@ os.makedirs(base_save_dir, exist_ok=True)
 
 live_file = open(join(base_save_dir, 'cv_scores_live.csv'), 'a', buffering=1)
 
-gpflow.reset_default_graph_and_session()
-
 
 def to_optimise(x):
 
@@ -69,6 +67,8 @@ def to_optimise(x):
 
     # Get model
     x = x[0]
+
+    gpflow.reset_default_graph_and_session()
 
     n_kernels, n_inducing, add_bias, use_mean_function = map(int, x)
 
@@ -114,7 +114,10 @@ def to_optimise(x):
 
 
 myBopt = BayesianOptimization(f=to_optimise, domain=domain)
-myBopt.run_optimization(max_iter=bopt_maxiter)
+myBopt.run_optimization(max_iter=bopt_maxiter,
+                        report_file=join(base_save_dir, 'report'),
+                        evaluations_file=join(base_save_dir, 'evals'),
+                        models_file=join(base_save_dir, 'models'))
 
 # Store bayesian optimisation
 save_pickle_safely(myBopt, join(base_save_dir, 'bayes_opt_object.pkl'))
