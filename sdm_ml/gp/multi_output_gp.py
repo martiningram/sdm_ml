@@ -260,7 +260,7 @@ class MultiOutputGP(PresenceAbsenceModel):
             model.fit(cur_X, cur_y)
 
             cur_save_dir = join(save_dir, f'fold_{i + 1}')
-            os.makedirs(cur_save_dir)
+            os.makedirs(cur_save_dir, exist_ok=True)
 
             model.save_model(cur_save_dir)
 
