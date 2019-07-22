@@ -98,15 +98,17 @@ if __name__ == '__main__':
     output_base_dir = './experiments/evaluations/'
 
     datasets = {
-        'bbs': BBSDataset.init_using_env_variable(),
+        # 'bbs': BBSDataset.init_using_env_variable(),
         'norberg_birds_1': NorbergDataset.init_using_env_variable(
-            dataset_name='birds', cv_fold=1)
+            dataset_name='birds', cv_fold=1),
+        'norberg_birds_3': NorbergDataset.init_using_env_variable(
+            dataset_name='birds', cv_fold=3),
     }
 
     models = {
-        # 'mogp': partial(get_multi_output_gp, n_inducing=20,
-        #                 n_kernels=6, add_bias=True, use_priors=True,
-        #                 test_run=test_run),
+        'mogp': partial(get_multi_output_gp, n_inducing=20,
+                        n_kernels=6, add_bias=True, use_priors=True,
+                        test_run=test_run),
         'log_reg_cv': get_log_reg,
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,

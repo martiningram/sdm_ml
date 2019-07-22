@@ -239,6 +239,11 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         assert self.is_fit
         mu, cov = compute_latent_predictions(self.m, X, mix_latents=True)
+
+        if self.m.mean_function is not None:
+            c = self.m.mean_function.c.value
+            mu += c
+
         return mu, cov
 
     @staticmethod
