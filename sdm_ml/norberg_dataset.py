@@ -40,7 +40,7 @@ class NorbergDataset(Dataset):
             load_no_header(x) for x in [xv_file, yv_file, sv_file]]
 
     @classmethod
-    def init_from_env_var(cls, dataset_name, cv_fold, **kwargs):
+    def init_using_env_variable(cls, dataset_name, cv_fold, **kwargs):
 
         assert 'NORBERG_PATH' in os.environ
 
