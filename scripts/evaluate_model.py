@@ -1,7 +1,6 @@
 import os
 import numpy as np
 from os.path import join
-from tqdm import tqdm
 from functools import partial
 
 from sdm_ml.dataset import BBSDataset, SpeciesData
@@ -39,7 +38,13 @@ def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
 
 
 def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
-                        use_priors, test_run):
+                        use_priors, test_run, use_mean_function):
+
+    if use_mean_function:
+        mean_fun = partial(MultiOutputGP.build_default_mean_function,
+                           n_outputs=n_outcomes)
+    else:
+        mean_fun = lambda: None # NOQA
 
     # Fetch multi output GP
     mogp_kernel = MultiOutputGP.build_default_kernel(
@@ -48,7 +53,7 @@ def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
 
     mogp = MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
                          kernel=mogp_kernel, maxiter=10 if test_run else
-                         int(1E6))
+                         int(1E6), mean_function=mean_fun)
 
     return mogp
 
@@ -56,6 +61,13 @@ def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
 def get_log_reg(n_dims, n_outcomes):
 
     model = ScikitModel()
+
+    return model
+
+
+def get_random_forest_cv(n_dims, n_outcomes):
+
+    model = ScikitModel(ScikitModel.create_cross_validated_forest)
 
     return model
 
@@ -97,22 +109,18 @@ if __name__ == '__main__':
     test_run = False
     output_base_dir = './experiments/evaluations/'
 
-    datasets = {
-        # 'bbs': BBSDataset.init_using_env_variable(),
-        'norberg_birds_1': NorbergDataset.init_using_env_variable(
-            dataset_name='birds', cv_fold=1),
-        'norberg_birds_3': NorbergDataset.init_using_env_variable(
-            dataset_name='birds', cv_fold=3),
-    }
+    datasets = NorbergDataset.fetch_all_norberg_sets()
+    datasets['bbs'] = BBSDataset.init_using_env_variable()
 
     models = {
-        'mogp': partial(get_multi_output_gp, n_inducing=20,
-                        n_kernels=6, add_bias=True, use_priors=True,
-                        test_run=test_run),
+        'rf_cv': get_random_forest_cv,
+        'mogp': partial(get_multi_output_gp, n_inducing=100,
+                        n_kernels=10, add_bias=True, use_priors=True,
+                        test_run=test_run, use_mean_function=False),
         'log_reg_cv': get_log_reg,
-        # 'sogp': partial(get_single_output_gp, test_run=test_run,
-        #                 add_bias=True, add_priors=True,
-        #                 n_inducing=100),
+        'sogp': partial(get_single_output_gp, test_run=test_run,
+                        add_bias=True, add_priors=True,
+                        n_inducing=100),
     }
 
     target_dir = join(output_base_dir,
@@ -131,7 +139,7 @@ if __name__ == '__main__':
             n_sites = training_set.covariates.shape[0]
 
             sites_to_pick = 100
-            species_to_pick = 8
+            species_to_pick = 10
 
             picked_sites, picked_species = pick_random_species_and_sites(
                 sites_to_pick, species_to_pick, n_sites, n_outcomes)
@@ -139,6 +147,8 @@ if __name__ == '__main__':
             training_set = reduce_sites(training_set, picked_sites)
             training_set = reduce_species(training_set, picked_species)
             test_set = reduce_species(test_set, picked_species)
+
+            n_outcomes = species_to_pick
 
         subdir = join(target_dir, cur_dataset_name)
 

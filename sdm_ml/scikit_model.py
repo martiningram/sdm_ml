@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 from tqdm import tqdm
 from functools import partial
+from sklearn.metrics import log_loss, make_scorer
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import GridSearchCV
@@ -42,11 +43,14 @@ class ScikitModel(PresenceAbsenceModel):
     @staticmethod
     def create_cross_validated_forest():
 
+        scorer = make_scorer(log_loss, greater_is_better=False, labels=[0, 1],
+                             needs_proba=True)
+
         search = GridSearchCV(RandomForestClassifier(), param_grid={
             'n_estimators': [50, 100, 250, 500, 1000],
             'max_depth': [None, 1, 2, 5],
             'max_features': [int(np.sqrt(8)), 2, 4]}, n_jobs=-1,
-            cv=4, scoring="neg_log_loss")
+            cv=4, scoring=scorer)
 
         return search
 
