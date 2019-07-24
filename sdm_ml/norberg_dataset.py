@@ -7,11 +7,12 @@ from functools import partial
 
 class NorbergDataset(Dataset):
 
+    dataset_names = ['birds', 'plant', 'vegetation', 'trees', 'butterfly']
+
     def __init__(self, base_dir, dataset_name, cv_fold):
 
         # Make sure arguments make sense
-        assert dataset_name in ['birds', 'plant', 'vegetation', 'trees',
-                                'butterfly']
+        assert dataset_name in self.dataset_names
         assert cv_fold in [1, 2, 3]
 
         suffix = f'{cv_fold}_{dataset_name}'
@@ -62,3 +63,16 @@ class NorbergDataset(Dataset):
     def species_names(self):
 
         return self.train_outcomes.columns
+
+    @classmethod
+    def fetch_all_norberg_sets(cls, cv_folds=[1, 3], use_env_var=True,
+                               **kwargs):
+
+        datasets = dict()
+
+        for cur_dataset in cls.dataset_names:
+            for cur_fold in cv_folds:
+                datasets[f'{cur_dataset}_{cur_fold}'] = \
+                    cls.init_using_env_variable(cur_dataset, cur_fold)
+
+        return datasets
