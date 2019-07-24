@@ -1,4 +1,5 @@
 import os
+import gpflow
 import numpy as np
 from os.path import join
 from functools import partial
@@ -112,6 +113,15 @@ if __name__ == '__main__':
     datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
+    old_len = len(datasets)
+
+    # We've run birds_1 already
+    datasets = {x: y for x, y in datasets.items() if x != 'birds_1'}
+
+    new_len = len(datasets)
+
+    assert (old_len - new_len) == 1
+
     models = {
         'rf_cv': get_random_forest_cv,
         'mogp': partial(get_multi_output_gp, n_inducing=100,
@@ -154,9 +164,19 @@ if __name__ == '__main__':
 
         for cur_model_name, cur_model_fn in models.items():
 
+            # Make sure tf graph is clear
+            gpflow.reset_default_graph_and_session()
+
             cur_subdir = join(subdir, cur_model_name)
             os.makedirs(cur_subdir, exist_ok=True)
 
             cur_model = cur_model_fn(n_dims, n_outcomes)
 
-            evaluate_model(training_set, test_set, cur_model, cur_subdir)
+            try:
+                evaluate_model(training_set, test_set, cur_model, cur_subdir)
+            except ValueError as e:
+                print(f'Failed to fit {cur_model_name}. Error was: {e}')
+                target_file = join(cur_subdir, 'error.txt')
+                with open(target_file, 'w') as f:
+                    f.write(f'Failed to fit model. Error was: {e}')
+                continue
