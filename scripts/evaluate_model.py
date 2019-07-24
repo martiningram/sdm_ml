@@ -10,6 +10,7 @@ from sdm_ml.scikit_model import ScikitModel
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.gp.single_output_gp import SingleOutputGP
 from sdm_ml.gp.multi_output_gp import MultiOutputGP
+from sdm_ml.brt.dismo_brt import DismoBRT
 from ml_tools.utils import create_path_with_variables
 
 
@@ -21,6 +22,11 @@ def evaluate_model(training_set, test_set, model, output_dir):
               training_set.outcomes.values.astype(int))
 
     compute_and_save_results_for_evaluation(test_set, model, output_dir)
+
+
+def get_brt(n_dims, n_outcomes):
+
+    return ScikitModel(DismoBRT)
 
 
 def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
@@ -94,7 +100,7 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = False
+    test_run = True
     output_base_dir = './experiments/evaluations/'
 
     datasets = {
@@ -106,13 +112,14 @@ if __name__ == '__main__':
     }
 
     models = {
-        'mogp': partial(get_multi_output_gp, n_inducing=20,
-                        n_kernels=6, add_bias=True, use_priors=True,
-                        test_run=test_run),
-        'log_reg_cv': get_log_reg,
+        # 'mogp': partial(get_multi_output_gp, n_inducing=20,
+        #                 n_kernels=6, add_bias=True, use_priors=True,
+        #                 test_run=test_run),
+        # 'log_reg_cv': get_log_reg,
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
+        'brt': get_brt
     }
 
     target_dir = join(output_base_dir,
