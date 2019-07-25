@@ -45,12 +45,16 @@ if (ncol(X) == 8) {
   fit <- glmer(is_present ~ (X0 | species) + (X1 | species) + (X2 | species) +
                (X3 | species) + (X4 | species) + (X5 | species) + (X6 | species)
              + (X7 | species) + (1 | species), melted, family = 'binomial')
-} else {
+} else if (ncol(X) == 5) {
   # We're fitting one of the Norberg sets
   fit <- glmer(is_present ~ (X0 | species) + (X1 | species) + (X2 | species) +
                (X3 | species) + (X4 | species) + (1 | species), melted, 
                family = 'binomial')
+} else {
+  fit <- glmer(is_present ~ (X0 | species) + (X1 | species) + (X2 | species) +
+               (X3 | species) + (1 | species), melted, family = 'binomial')
 }
+
 
 saveRDS(fit, file=paste(arguments$target_dir, 'mixed_fit.Rds', sep='/'))
 
