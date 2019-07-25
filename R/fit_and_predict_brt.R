@@ -11,7 +11,7 @@ parser$add_argument('--test-run', action='store_true')
 arguments <- parser$parse_args()
 
 train_x <- read.csv(arguments$train_x_csv, row.names=1)
-train_y <- read.csv(arguments$train_y_csv, row.names=1)
+train_y <- read.csv(arguments$train_y_csv, row.names=1, check.names=FALSE)
 test_x <- read.csv(arguments$test_x_csv, row.names=1)
 
 if (arguments$test_run) {
@@ -22,6 +22,9 @@ if (arguments$test_run) {
 
 test_preds <- matrix(0, ncol=ncol(train_y), nrow=nrow(test_x))
 
+brt_model_save_dir <- paste(arguments$target_dir, 'brt_model_objects/', sep='/')
+dir.create(brt_model_save_dir, showWarnings=FALSE)
+
 for (i in 1:ncol(train_y)) {
 
   print(paste0('On species number ', i))
@@ -31,12 +34,12 @@ for (i in 1:ncol(train_y)) {
   preds <- brtPredict(fit$m, test_x, fit$ntree)
   test_preds[, i] <- preds
 
+  saveRDS(fit, paste0(brt_model_save_dir, i, '.Rds'))
+
 }
 
 test_preds <- data.frame(test_preds, row.names=rownames(test_x))
 colnames(test_preds) <- colnames(train_y)
-
-print(head(test_preds))
 
 target_file <- paste(arguments$target_dir, 'brt_predictions.csv', sep='/')
 write.csv(test_preds, target_file)
