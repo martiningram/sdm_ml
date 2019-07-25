@@ -107,20 +107,11 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = False
+    test_run = True
     output_base_dir = './experiments/evaluations/'
 
     datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
-
-    old_len = len(datasets)
-
-    # We've run birds_1 already
-    datasets = {x: y for x, y in datasets.items() if x != 'birds_1'}
-
-    new_len = len(datasets)
-
-    assert (old_len - new_len) == 1
 
     models = {
         'rf_cv': get_random_forest_cv,
