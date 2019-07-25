@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import rpy2.robjects as robjects
-from python_tools.paths import get_cur_script_path
+from ml_tools.utils import get_cur_script_path
 import rpy2.robjects.numpy2ri
 
 

@@ -1,6 +1,7 @@
 import os
 import time
 import gpflow
+import numpy as np
 import pandas as pd
 from ml_tools.utils import save_pickle_safely
 from os.path import join
@@ -12,12 +13,22 @@ from GPyOpt.methods import BayesianOptimization
 
 
 base_save_dir = './experiments/cv_gpflow/'
-test_run = True
+test_run = False
+shuffle = True
+seed = 1
+
+np.random.seed(seed)
 
 dataset = BBSDataset(os.environ['BBS_PATH'])
 
 X = dataset.training_set.covariates.values
 y = dataset.training_set.outcomes.values.astype(int)
+
+if shuffle:
+
+    order = np.random.choice(X.shape[0], size=X.shape[0], replace=False)
+    X = X[order]
+    y = y[order]
 
 if test_run:
     X = X[:200]
@@ -45,7 +56,8 @@ def create_model(n_kernels, n_inducing, add_bias, mean_function):
 
 domain = [
     {'name': 'n_kernels', 'type': 'discrete', 'domain': (2, 3, 4, 5, 6, 7, 8)},
-    {'name': 'n_inducing', 'type': 'discrete', 'domain': [5, 10, 20, 30, 50]},
+    {'name': 'n_inducing', 'type': 'discrete',
+     'domain': [5, 10, 20, 30, 50, 100]},
     {'name': 'add_bias', 'type': 'discrete', 'domain': [0, 1]},
     {'name': 'mean_function', 'type': 'discrete', 'domain':  [0, 1]}]
 
@@ -54,7 +66,8 @@ STEP = 0
 # Add on the date
 base_save_dir = join(base_save_dir,
                      create_path_with_variables(test_run=test_run,
-                                                method='bayesopt'))
+                                                method='bayesopt',
+                                                shuffle=shuffle))
 
 os.makedirs(base_save_dir, exist_ok=True)
 
@@ -115,10 +128,10 @@ def to_optimise(x):
 
 myBopt = BayesianOptimization(f=to_optimise, domain=domain)
 myBopt.run_optimization(max_iter=bopt_maxiter,
-                        report_file=join(base_save_dir, 'report'),
-                        evaluations_file=join(base_save_dir, 'evals'),
-                        models_file=join(base_save_dir, 'models'))
+                        report_file=join(base_save_dir, 'report.txt'),
+                        evaluations_file=join(base_save_dir, 'evals.txt'),
+                        models_file=join(base_save_dir, 'models.txt'))
 
 # Store bayesian optimisation
-save_pickle_safely(myBopt, join(base_save_dir, 'bayes_opt_object.pkl'))
 live_file.close()
+save_pickle_safely(myBopt, join(base_save_dir, 'bayes_opt_object.pkl'))

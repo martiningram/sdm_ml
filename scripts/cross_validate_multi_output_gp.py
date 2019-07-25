@@ -2,6 +2,7 @@ import os
 import time
 import gpflow
 import pandas as pd
+import numpy as np
 from os.path import join
 from functools import partial
 from sdm_ml.dataset import BBSDataset
@@ -11,11 +12,21 @@ from ml_tools.utils import create_path_with_variables
 
 base_save_dir = './experiments/cv_gpflow/'
 test_run = False
+shuffle = True
+seed = 1
+
+np.random.seed(seed)
 
 dataset = BBSDataset(os.environ['BBS_PATH'])
 
 X = dataset.training_set.covariates.values
 y = dataset.training_set.outcomes.values.astype(int)
+
+if shuffle:
+
+    order = np.random.choice(X.shape[0], size=X.shape[0], replace=False)
+    X = X[order]
+    y = y[order]
 
 if test_run:
     X = X[:200]
@@ -38,12 +49,13 @@ def create_model(n_kernels, n_inducing, add_bias, mean_function):
                          n_draws_predict=int(1E3), mean_function=mean_function)
 
 
-grid = {'n_kernels': [2, 4, 6, 8], 'n_inducing': [10, 20, 50],
-        'add_bias': [False], 'mean_function': [True, False]}
+grid = {'n_kernels': [8, 10, 12, 16], 'n_inducing': [20, 50, 100],
+        'add_bias': [True], 'mean_function': [False]}
 
 # Add on the date
 base_save_dir = join(base_save_dir,
-                     create_path_with_variables(test_run=test_run))
+                     create_path_with_variables(test_run=test_run,
+                                                shuffle=shuffle))
 
 i = 0
 
