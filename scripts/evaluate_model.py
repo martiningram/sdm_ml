@@ -100,7 +100,7 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = True
+    test_run = False
     output_base_dir = './experiments/evaluations/'
 
     datasets = {
