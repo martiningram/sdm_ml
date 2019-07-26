@@ -7,6 +7,7 @@ from functools import partial
 from sdm_ml.dataset import BBSDataset, SpeciesData
 from sdm_ml.norberg_dataset import NorbergDataset
 from sdm_ml.scikit_model import ScikitModel
+from sdm_ml.brt.dismo_brt import DismoBRT
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.gp.single_output_gp import SingleOutputGP
 from sdm_ml.gp.multi_output_gp import MultiOutputGP
@@ -36,6 +37,43 @@ def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
         verbose_fit=False, maxiter=10 if test_run else int(1E6))
 
     return so_gp
+
+
+def shuffle_train_set_order(training_set, seed=1):
+
+    np.random.seed(seed)
+    n_sites = training_set.covariates.shape[0]
+    new_order = np.random.choice(n_sites, size=n_sites, replace=False)
+
+    lat_lon = (None if training_set.lat_lon is None else
+               training_set.lat_lon.iloc[new_order])
+
+    return SpeciesData(
+        covariates=training_set.covariates.iloc[new_order],
+        outcomes=training_set.outcomes.iloc[new_order],
+        lat_lon=lat_lon
+    )
+
+
+def discard_rare_species(training_set, test_set, min_presences=5):
+
+    train_outcomes = training_set.outcomes
+    n_presences = train_outcomes.sum(axis=0)
+    make_cut = train_outcomes.columns[n_presences > min_presences]
+
+    new_training_set = SpeciesData(
+        covariates=training_set.covariates,
+        outcomes=training_set.outcomes[make_cut],
+        lat_lon=training_set.lat_lon
+    )
+
+    new_test_set = SpeciesData(
+        covariates=test_set.covariates,
+        outcomes=test_set.outcomes[make_cut],
+        lat_lon=test_set.lat_lon
+    )
+
+    return new_training_set, new_test_set
 
 
 def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
@@ -68,7 +106,15 @@ def get_log_reg(n_dims, n_outcomes):
 
 def get_random_forest_cv(n_dims, n_outcomes):
 
-    model = ScikitModel(ScikitModel.create_cross_validated_forest)
+    model = ScikitModel(partial(ScikitModel.create_cross_validated_forest,
+                                n_covariates=n_dims))
+
+    return model
+
+
+def get_brt(n_dims, n_outcomes):
+
+    model = ScikitModel(DismoBRT)
 
     return model
 
@@ -109,19 +155,24 @@ if __name__ == '__main__':
 
     test_run = False
     output_base_dir = './experiments/evaluations/'
+    output_base_dir = './tmp/'
+    min_presences = 0
 
     datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
+    datasets = {'trees_1': datasets['trees_1']}
+
     models = {
+        # 'brt': get_brt,
         'rf_cv': get_random_forest_cv,
-        'mogp': partial(get_multi_output_gp, n_inducing=100,
-                        n_kernels=10, add_bias=True, use_priors=True,
-                        test_run=test_run, use_mean_function=False),
-        'log_reg_cv': get_log_reg,
-        'sogp': partial(get_single_output_gp, test_run=test_run,
-                        add_bias=True, add_priors=True,
-                        n_inducing=100),
+        # 'mogp': partial(get_multi_output_gp, n_inducing=100,
+        #                 n_kernels=10, add_bias=True, use_priors=True,
+        #                 test_run=test_run, use_mean_function=False),
+        # 'log_reg_cv': get_log_reg,
+        # 'sogp': partial(get_single_output_gp, test_run=test_run,
+        #                 add_bias=True, add_priors=True,
+        #                 n_inducing=100),
     }
 
     target_dir = join(output_base_dir,
@@ -131,6 +182,11 @@ if __name__ == '__main__':
 
         training_set = cur_dataset.training_set
         test_set = cur_dataset.test_set
+
+        training_set, test_set = discard_rare_species(
+            training_set, test_set, min_presences=min_presences)
+
+        training_set = shuffle_train_set_order(training_set)
 
         n_dims = training_set.covariates.shape[1]
         n_outcomes = training_set.outcomes.shape[1]
