@@ -1,4 +1,4 @@
-library(dismo)
+# library(dismo)
 library(gbm)
 
 # From Nick's code
@@ -12,13 +12,15 @@ brtFit <- function(y, x.train) {
   m <- gbm(y ~ .,
            distribution = 'bernoulli',
            data = x.train,
-           interaction.depth = 5,
+           interaction.depth = 5, # For rare species: 1
            shrinkage = 0.001,
            n.trees = 10000,
            cv.folds = 5,
            bag.fraction = 0.5,
            verbose = FALSE,
            n.cores = 1)
+
+  # GBM.step?
   
   ntree <- gbm.perf(m,
                     plot.it = FALSE,

@@ -113,6 +113,12 @@ if __name__ == '__main__':
     datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
+    # No need to re-run some of the ones we've already run
+    datasets = {x: y for x, y in datasets.items() if 'birds' not in x
+                and 'plant' not in x and 'vegetation' not in x}
+
+    print(datasets)
+
     models = {
         'rf_cv': get_random_forest_cv,
         'mogp': partial(get_multi_output_gp, n_inducing=100,

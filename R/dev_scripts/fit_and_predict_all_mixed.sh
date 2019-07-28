@@ -13,6 +13,7 @@ for subdir in "$dataset_dir"/*; do
     --train-x-csv "$cur_train_x" \
     --train-y-csv "$cur_train_y" \
     --test-x-csv "$cur_test_x" \
-    --target-dir "$cur_target_dir"
+    --target-dir "$cur_target_dir" \
+    --skip-if-present
 
 done

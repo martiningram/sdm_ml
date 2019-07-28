@@ -9,7 +9,15 @@ parser$add_argument('--train-y-csv', required=TRUE, type="character")
 parser$add_argument('--test-x-csv', required=TRUE, type="character")
 parser$add_argument('--target-dir', required=TRUE, type="character")
 parser$add_argument('--test-run', action='store_true')
+parser$add_argument('--skip-if-present', action='store_true')
 arguments <- parser$parse_args()
+
+file_to_check <- paste(arguments$target_dir, 'mixed_predictions.csv', sep='/')
+
+if (arguments$skip_if_present & file.exists(file_to_check)) {
+  print('Predictions file already exists and skip-if-present is true. Exiting.')
+  stop()
+}
 
 X <- read.csv(arguments$train_x_csv, row.names=1)
 y <- read.csv(arguments$train_y_csv, row.names=1, check.names=FALSE)
@@ -40,6 +48,7 @@ combined_x_y <- cbind(X, y)
 melted <- melt(combined_x_y, id.vars=colnames(X), variable.name='species',
                value.name='is_present')
 
+# This is ugly -- I would rather have the formula auto-generated.
 if (ncol(X) == 8) {
   # We're fitting BBS
   fit <- glmer(is_present ~ (X0 | species) + (X1 | species) + (X2 | species) +
@@ -50,9 +59,12 @@ if (ncol(X) == 8) {
   fit <- glmer(is_present ~ (X0 | species) + (X1 | species) + (X2 | species) +
                (X3 | species) + (X4 | species) + (1 | species), melted, 
                family = 'binomial')
-} else {
+} else if (ncol(X) == 4) {
   fit <- glmer(is_present ~ (X0 | species) + (X1 | species) + (X2 | species) +
                (X3 | species) + (1 | species), melted, family = 'binomial')
+} else {
+  fit <- glmer(is_present ~ (X0 | species) + (X1 | species) + (X2 | species) +
+               (1 | species), melted, family = 'binomial')
 }
 
 
