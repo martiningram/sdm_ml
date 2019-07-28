@@ -41,15 +41,18 @@ class ScikitModel(PresenceAbsenceModel):
             self.models.append(cur_model)
 
     @staticmethod
-    def create_cross_validated_forest():
+    def create_cross_validated_forest(n_covariates):
 
         scorer = make_scorer(log_loss, greater_is_better=False, labels=[0, 1],
                              needs_proba=True)
 
+        max_features = [int(np.sqrt(8)), 2, 4]
+        max_features = [x for x in max_features if x <= n_covariates]
+
         search = GridSearchCV(RandomForestClassifier(), param_grid={
             'n_estimators': [50, 100, 250, 500, 1000],
             'max_depth': [None, 1, 2, 5],
-            'max_features': [int(np.sqrt(8)), 2, 4]}, n_jobs=-1,
+            'max_features': max_features}, n_jobs=-1,
             cv=4, scoring=scorer)
 
         return search
