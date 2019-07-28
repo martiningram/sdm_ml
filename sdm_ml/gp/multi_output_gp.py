@@ -221,9 +221,13 @@ class MultiOutputGP(PresenceAbsenceModel):
             W_init = np.random.randn(P, L)
             kernel = mk.SeparateMixedMok(kern_list, W_init)
 
-            if priors:
+            if priors == 'lax':
 
                 kernel.W.prior = gpf.priors.Gaussian(0, 1)
+
+            elif priors == 'fixed':
+
+                kernel.W.prior = gpf.priors.Gaussian(0, 0.01)
 
         return kernel
 
