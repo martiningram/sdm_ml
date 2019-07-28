@@ -198,6 +198,11 @@ class MultiOutputGP(PresenceAbsenceModel):
                     cur_kern.lengthscales.prior = gpf.priors.Gamma(3, 3)
                     cur_kern.variance.prior = gpf.priors.Gamma(0.5, 0.1125)
 
+            elif priors == 'fixed':
+                for cur_kern in kern_list:
+                    cur_kern.variance = 0.1
+                    cur_kern.variance.set_trainable(False)
+
             if add_bias:
                 kern_list[-1] = gpf.kernels.Bias(D, variance=1.0)
 
@@ -209,6 +214,9 @@ class MultiOutputGP(PresenceAbsenceModel):
                 elif priors == 'strict':
                     kern_list[-1].variance.prior = gpf.priors.Gamma(
                         0.5, 0.1125)
+                elif priors == 'fixed':
+                    kern_list[-1].variance = 0.1
+                    kern_list[-1].variance.set_trainable(False)
 
             W_init = np.random.randn(P, L)
             kernel = mk.SeparateMixedMok(kern_list, W_init)

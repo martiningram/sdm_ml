@@ -145,7 +145,7 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = False
+    test_run = True
     output_base_dir = './experiments/evaluations/'
     min_presences = 0
 
@@ -159,8 +159,8 @@ if __name__ == '__main__':
         #                 n_inducing=100),
         # 'rf_cv': get_random_forest_cv,
         'mogp_strict': partial(get_multi_output_gp, n_inducing=100,
-                        n_kernels=10, add_bias=True, use_priors='strict',
-                        test_run=test_run, use_mean_function=False),
+                               n_kernels=10, add_bias=True, use_priors='fixed',
+                               test_run=test_run, use_mean_function=False),
         # 'log_reg_cv': get_log_reg,
     }
 
@@ -207,8 +207,6 @@ if __name__ == '__main__':
             os.makedirs(cur_subdir, exist_ok=True)
 
             cur_model = cur_model_fn(n_dims, n_outcomes)
-
-            import ipdb; ipdb.set_trace()
 
             try:
                 evaluate_model(training_set, test_set, cur_model, cur_subdir)
