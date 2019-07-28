@@ -147,7 +147,6 @@ if __name__ == '__main__':
 
     test_run = False
     output_base_dir = './experiments/evaluations/'
-    output_base_dir = './tmp/'
     min_presences = 0
 
     datasets = NorbergDataset.fetch_all_norberg_sets()
