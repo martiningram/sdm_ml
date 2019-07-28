@@ -161,8 +161,6 @@ if __name__ == '__main__':
     datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
-    datasets = {'trees_1': datasets['trees_1']}
-
     models = {
         # 'brt': get_brt,
         'rf_cv': get_random_forest_cv,
