@@ -145,7 +145,7 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = False
+    test_run = True
     output_base_dir = './experiments/evaluations/'
     min_presences = 0
 
@@ -154,14 +154,14 @@ if __name__ == '__main__':
 
     models = {
         # 'brt': get_brt,
-        'rf_cv': get_random_forest_cv,
+        # 'rf_cv': get_random_forest_cv,
         # 'mogp': partial(get_multi_output_gp, n_inducing=100,
         #                 n_kernels=10, add_bias=True, use_priors=True,
         #                 test_run=test_run, use_mean_function=False),
         # 'log_reg_cv': get_log_reg,
-        # 'sogp': partial(get_single_output_gp, test_run=test_run,
-        #                 add_bias=True, add_priors=True,
-        #                 n_inducing=100),
+        'sogp': partial(get_single_output_gp, test_run=test_run,
+                        add_bias=True, add_priors=True,
+                        n_inducing=100),
     }
 
     target_dir = join(output_base_dir,
