@@ -7,7 +7,6 @@ from functools import partial
 from sdm_ml.dataset import BBSDataset, SpeciesData
 from sdm_ml.norberg_dataset import NorbergDataset
 from sdm_ml.scikit_model import ScikitModel
-from sdm_ml.brt.dismo_brt import DismoBRT
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.gp.single_output_gp import SingleOutputGP
 from sdm_ml.gp.multi_output_gp import MultiOutputGP
@@ -108,13 +107,6 @@ def get_random_forest_cv(n_dims, n_outcomes):
 
     model = ScikitModel(partial(ScikitModel.create_cross_validated_forest,
                                 n_covariates=n_dims))
-
-    return model
-
-
-def get_brt(n_dims, n_outcomes):
-
-    model = ScikitModel(DismoBRT)
 
     return model
 
