@@ -170,7 +170,7 @@ class MultiOutputGP(PresenceAbsenceModel):
 
     @staticmethod
     def build_default_kernel(n_dims, n_kernels, n_outputs, add_bias=False,
-                             priors=True):
+                             priors='strict'):
 
         L = n_kernels
         D = n_dims
@@ -183,7 +183,7 @@ class MultiOutputGP(PresenceAbsenceModel):
                 gpf.kernels.RBF(D, ARD=True, variance=1.0) for _ in
                 range(L)]
 
-            if priors:
+            if priors == 'lax':
                 for cur_kern in kern_list:
                     # Stan uses an inverse-gamma distribution here, which I
                     # could do too, but I would have to implement it in GPFlow.
@@ -193,14 +193,22 @@ class MultiOutputGP(PresenceAbsenceModel):
                     # deviation.
                     cur_kern.variance.prior = gpf.priors.Gamma(0.5, 2.)
 
+            elif priors == 'strict':
+                for cur_kern in kern_list:
+                    cur_kern.lengthscales.prior = gpf.priors.Gamma(3, 3)
+                    cur_kern.variance.prior = gpf.priors.Gamma(0.5, 0.1125)
+
             if add_bias:
                 kern_list[-1] = gpf.kernels.Bias(D, variance=1.0)
 
-                if priors:
+                if priors == 'lax':
                     # Equivalent to a N(0, 5**2) prior on the standard
                     # deviation.
                     kern_list[-1].variance.prior = gpf.priors.Gamma(
                         0.5, 2 * 5**2)
+                elif priors == 'strict':
+                    kern_list[-1].variance.prior = gpf.priors.Gamma(
+                        0.5, 0.1125)
 
             W_init = np.random.randn(P, L)
             kernel = mk.SeparateMixedMok(kern_list, W_init)
