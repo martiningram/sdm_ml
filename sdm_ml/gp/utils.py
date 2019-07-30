@@ -69,3 +69,10 @@ def save_gpflow_model(model_object, target_file, exist_ok=True):
 
     saver = gpflow.saver.Saver()
     saver.save(target_file, model_object)
+
+
+def load_saved_gpflow_model(gpflow_model_path: str):
+
+    gpflow.reset_default_graph_and_session()
+    m = gpflow.saver.Saver().load(gpflow_model_path)
+    return m

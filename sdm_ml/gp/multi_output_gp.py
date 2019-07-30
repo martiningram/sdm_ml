@@ -170,7 +170,8 @@ class MultiOutputGP(PresenceAbsenceModel):
 
     @staticmethod
     def build_default_kernel(n_dims, n_kernels, n_outputs, add_bias=False,
-                             priors=True):
+                             w_prior=0.1, kern_var_trainable=False,
+                             rbf_var=0.1, bias_var=0.1):
 
         L = n_kernels
         D = n_dims
@@ -183,31 +184,20 @@ class MultiOutputGP(PresenceAbsenceModel):
                 gpf.kernels.RBF(D, ARD=True, variance=1.0) for _ in
                 range(L)]
 
-            if priors:
-                for cur_kern in kern_list:
-                    # Stan uses an inverse-gamma distribution here, which I
-                    # could do too, but I would have to implement it in GPFlow.
-                    cur_kern.lengthscales.prior = gpf.priors.Gamma(3, 3)
-
-                    # This is equivalent to a half-normal prior on the standard
-                    # deviation.
-                    cur_kern.variance.prior = gpf.priors.Gamma(0.5, 2.)
+            for cur_kern in kern_list:
+                cur_kern.lengthscales.prior = gpf.priors.Gamma(3, 3)
+                cur_kern.variance = rbf_var
+                cur_kern.variance.set_trainable(kern_var_trainable)
 
             if add_bias:
-                kern_list[-1] = gpf.kernels.Bias(D, variance=1.0)
-
-                if priors:
-                    # Equivalent to a N(0, 5**2) prior on the standard
-                    # deviation.
-                    kern_list[-1].variance.prior = gpf.priors.Gamma(
-                        0.5, 2 * 5**2)
+                kern_list[-1] = gpf.kernels.Bias(D)
+                kern_list[-1].variance = bias_var
+                kern_list[-1].variance.set_trainable(kern_var_trainable)
 
             W_init = np.random.randn(P, L)
             kernel = mk.SeparateMixedMok(kern_list, W_init)
 
-            if priors:
-
-                kernel.W.prior = gpf.priors.Gaussian(0, 1)
+            kernel.W.prior = gpf.priors.Gaussian(0, w_prior)
 
         return kernel
 
