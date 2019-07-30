@@ -3,6 +3,7 @@ import gpflow
 import numpy as np
 from os.path import join
 from functools import partial
+from dask.distributed import Client
 
 from sdm_ml.dataset import BBSDataset, SpeciesData
 from sdm_ml.norberg_dataset import NorbergDataset
@@ -143,11 +144,73 @@ def reduce_species(species_data, picked_species):
         lat_lon=species_data.lat_lon)
 
 
+def get_dask_client():
+
+    client = Client(threads_per_worker=1, n_workers=1)
+
+    return client
+
+
+def run_evaluation(cur_model_name, cur_model_fn, cur_dataset_name, cur_dataset,
+                   min_presences, test_run, target_dir):
+
+    training_set = cur_dataset.training_set
+    test_set = cur_dataset.test_set
+
+    training_set, test_set = discard_rare_species(
+        training_set, test_set, min_presences=min_presences)
+
+    training_set = shuffle_train_set_order(training_set)
+
+    n_dims = training_set.covariates.shape[1]
+    n_outcomes = training_set.outcomes.shape[1]
+
+    if test_run:
+
+        n_sites = training_set.covariates.shape[0]
+
+        sites_to_pick = 100
+        species_to_pick = 10
+
+        picked_sites, picked_species = pick_random_species_and_sites(
+            sites_to_pick, species_to_pick, n_sites, n_outcomes)
+
+        training_set = reduce_sites(training_set, picked_sites)
+        training_set = reduce_species(training_set, picked_species)
+        test_set = reduce_species(test_set, picked_species)
+
+        n_outcomes = species_to_pick
+
+    subdir = join(target_dir, cur_dataset_name)
+
+    # Make sure tf graph is clear
+    gpflow.reset_default_graph_and_session()
+
+    cur_subdir = join(subdir, cur_model_name)
+    os.makedirs(cur_subdir, exist_ok=True)
+
+    cur_model = cur_model_fn(n_dims, n_outcomes)
+
+    try:
+        evaluate_model(training_set, test_set, cur_model, cur_subdir)
+    except ValueError as e:
+        print(f'Failed to fit {cur_model_name}. Error was: {e}')
+        target_file = join(cur_subdir, 'error.txt')
+        with open(target_file, 'w') as f:
+            f.write(f'Failed to fit model. Error was: {e}')
+
+
 if __name__ == '__main__':
 
-    test_run = False
+    import dask
+
+    os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
+    test_run = True
     output_base_dir = './experiments/evaluations/'
     min_presences = 5
+
+    dask_client = get_dask_client()
 
     datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
@@ -164,55 +227,21 @@ if __name__ == '__main__':
         'log_reg_cv': get_log_reg,
     }
 
+    all_dask = list()
+
     target_dir = join(output_base_dir,
                       create_path_with_variables(test_run=test_run))
 
+    dask_fun = dask.delayed(run_evaluation)
+
     for cur_dataset_name, cur_dataset in datasets.items():
-
-        training_set = cur_dataset.training_set
-        test_set = cur_dataset.test_set
-
-        training_set, test_set = discard_rare_species(
-            training_set, test_set, min_presences=min_presences)
-
-        training_set = shuffle_train_set_order(training_set)
-
-        n_dims = training_set.covariates.shape[1]
-        n_outcomes = training_set.outcomes.shape[1]
-
-        if test_run:
-
-            n_sites = training_set.covariates.shape[0]
-
-            sites_to_pick = 100
-            species_to_pick = 10
-
-            picked_sites, picked_species = pick_random_species_and_sites(
-                sites_to_pick, species_to_pick, n_sites, n_outcomes)
-
-            training_set = reduce_sites(training_set, picked_sites)
-            training_set = reduce_species(training_set, picked_species)
-            test_set = reduce_species(test_set, picked_species)
-
-            n_outcomes = species_to_pick
-
-        subdir = join(target_dir, cur_dataset_name)
-
         for cur_model_name, cur_model_fn in models.items():
 
-            # Make sure tf graph is clear
-            gpflow.reset_default_graph_and_session()
+            all_dask.append(dask_fun(
+                cur_model_name=cur_model_name, cur_model_fn=cur_model_fn,
+                cur_dataset_name=cur_dataset_name, cur_dataset=cur_dataset,
+                min_presences=min_presences, test_run=test_run,
+                target_dir=target_dir)
+            )
 
-            cur_subdir = join(subdir, cur_model_name)
-            os.makedirs(cur_subdir, exist_ok=True)
-
-            cur_model = cur_model_fn(n_dims, n_outcomes)
-
-            try:
-                evaluate_model(training_set, test_set, cur_model, cur_subdir)
-            except ValueError as e:
-                print(f'Failed to fit {cur_model_name}. Error was: {e}')
-                target_file = join(cur_subdir, 'error.txt')
-                with open(target_file, 'w') as f:
-                    f.write(f'Failed to fit model. Error was: {e}')
-                continue
+    dask.compute(all_dask)
