@@ -146,7 +146,7 @@ def reduce_species(species_data, picked_species):
 
 def get_dask_client():
 
-    client = Client(threads_per_worker=1, n_workers=1)
+    client = Client()
 
     return client
 
