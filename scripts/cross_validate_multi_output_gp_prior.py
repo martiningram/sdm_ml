@@ -11,7 +11,7 @@ from ml_tools.utils import create_path_with_variables
 
 
 base_save_dir = './experiments/cv_gpflow/'
-test_run = True
+test_run = False
 shuffle = True
 seed = 1
 
@@ -48,7 +48,7 @@ def create_model(w_prior):
                          maxiter=maxiter, n_draws_predict=int(1E4))
 
 
-grid = {'w_prior': np.linspace(0.1, 1., 5)**2}
+grid = {'w_prior': np.linspace(0.1, 1., 10)**2}
 
 # Add on the date
 base_save_dir = join(base_save_dir,

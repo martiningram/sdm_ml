@@ -76,7 +76,7 @@ def discard_rare_species(training_set, test_set, min_presences=5):
 
 
 def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
-                        use_priors, test_run, use_mean_function):
+                        w_prior, test_run, use_mean_function):
 
     if use_mean_function:
         mean_fun = partial(MultiOutputGP.build_default_mean_function,
@@ -87,7 +87,7 @@ def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
     # Fetch multi output GP
     mogp_kernel = MultiOutputGP.build_default_kernel(
         n_dims=n_dims, n_kernels=n_kernels, n_outputs=n_outcomes,
-        add_bias=add_bias, priors=use_priors)
+        add_bias=add_bias, w_prior=w_prior)
 
     mogp = MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
                          kernel=mogp_kernel, maxiter=10 if test_run else
@@ -147,21 +147,21 @@ if __name__ == '__main__':
 
     test_run = False
     output_base_dir = './experiments/evaluations/'
-    min_presences = 0
+    min_presences = 5
 
-    # datasets = NorbergDataset.fetch_all_norberg_sets()
-    datasets = {}
+    datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
     models = {
-        # 'sogp': partial(get_single_output_gp, test_run=test_run,
-        #                 add_bias=True, add_priors=True,
-        #                 n_inducing=100),
-        # 'rf_cv': get_random_forest_cv,
         'mogp_strict': partial(get_multi_output_gp, n_inducing=100,
-                               n_kernels=10, add_bias=True, use_priors='fixed',
-                               test_run=test_run, use_mean_function=False),
-        # 'log_reg_cv': get_log_reg,
+                               n_kernels=10, add_bias=True,
+                               test_run=test_run, use_mean_function=False,
+                               w_prior=0.4),
+        'sogp': partial(get_single_output_gp, test_run=test_run,
+                        add_bias=True, add_priors=True,
+                        n_inducing=100),
+        'rf_cv': get_random_forest_cv,
+        'log_reg_cv': get_log_reg,
     }
 
     target_dir = join(output_base_dir,
