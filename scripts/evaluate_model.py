@@ -1,8 +1,9 @@
 import os
-import gpflow
 import numpy as np
+import gpflow
 from os.path import join
 from functools import partial
+from dask_jobqueue import SLURMCluster
 from dask.distributed import Client
 
 from sdm_ml.dataset import BBSDataset, SpeciesData
@@ -151,6 +152,23 @@ def get_dask_client():
     return client
 
 
+def get_slurm_dask_client(n_workers, n_cores, n_processes):
+
+    cluster = SLURMCluster(cores=n_cores,
+                           processes=n_processes,
+                           memory='32GB',
+                           project="punim0872",
+                           walltime="1-0",
+                           extra=['--resources GPU=1'],
+                           queue="gpgpu",
+                           job_extra=['--gres=gpu:1'])
+
+    cluster.start_workers(n_workers)
+    client = Client(cluster)
+
+    return client
+
+
 def run_evaluation(cur_model_name, cur_model_fn, cur_dataset_name, cur_dataset,
                    min_presences, test_run, target_dir):
 
@@ -206,11 +224,18 @@ if __name__ == '__main__':
 
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
-    test_run = True
-    output_base_dir = './experiments/evaluations/'
+    test_run = False
+    output_base_dir = '/data/cephfs/punim0592/sdm_ml/dask_evaluations/'
     min_presences = 5
+    use_slurm = True
 
-    dask_client = get_dask_client()
+    if use_slurm:
+        # To start with, run only one process per worker; need to work out
+        # how to avoid GPU clashes.
+        dask_client = get_slurm_dask_client(n_workers=4, n_cores=8,
+                                            n_processes=1)
+    else:
+        dask_client = get_dask_client()
 
     datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
@@ -220,11 +245,11 @@ if __name__ == '__main__':
                                n_kernels=10, add_bias=True,
                                test_run=test_run, use_mean_function=False,
                                w_prior=0.4),
-        'sogp': partial(get_single_output_gp, test_run=test_run,
-                        add_bias=True, add_priors=True,
-                        n_inducing=100),
-        'rf_cv': get_random_forest_cv,
-        'log_reg_cv': get_log_reg,
+        # 'sogp': partial(get_single_output_gp, test_run=test_run,
+        #                 add_bias=True, add_priors=True,
+        #                 n_inducing=100),
+        # 'rf_cv': get_random_forest_cv,
+        # 'log_reg_cv': get_log_reg,
     }
 
     all_dask = list()
@@ -232,16 +257,19 @@ if __name__ == '__main__':
     target_dir = join(output_base_dir,
                       create_path_with_variables(test_run=test_run))
 
-    dask_fun = dask.delayed(run_evaluation)
-
     for cur_dataset_name, cur_dataset in datasets.items():
         for cur_model_name, cur_model_fn in models.items():
 
-            all_dask.append(dask_fun(
-                cur_model_name=cur_model_name, cur_model_fn=cur_model_fn,
-                cur_dataset_name=cur_dataset_name, cur_dataset=cur_dataset,
-                min_presences=min_presences, test_run=test_run,
-                target_dir=target_dir)
+            needs_gpu = 'mogp' in cur_model_name or 'sogp' in cur_model_name
+            added_kwargs = dict()
+            if needs_gpu:
+                added_kwargs['resources'] = {'GPU': 1}
+
+            all_dask.append(
+                dask_client.submit(
+                    run_evaluation, cur_model_name, cur_model_fn,
+                    cur_dataset_name, cur_dataset, min_presences, test_run,
+                    target_dir, **added_kwargs)
             )
 
-    dask.compute(all_dask)
+    dask_client.gather(all_dask)
