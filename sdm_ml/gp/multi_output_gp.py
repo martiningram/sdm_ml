@@ -1,6 +1,7 @@
 import os
 import pickle
 import numpy as np
+import pandas as pd
 import gpflow as gpf
 import gpflow.multioutput.features as mf
 import gpflow.multioutput.kernels as mk
@@ -8,7 +9,6 @@ from tqdm import tqdm
 from os.path import join
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
-from functools import partial
 
 from .utils import (find_starting_z, save_gpflow_model,
                     log_probability_via_sampling)
@@ -277,5 +277,12 @@ class MultiOutputGP(PresenceAbsenceModel):
                      cur_test_y=cur_test_y,
                      train_ind=cur_train_ind,
                      test_ind=cur_test_ind)
+
+        pd.Series({'mean_lik': np.mean(fold_liks)}).to_csv(
+            join(save_dir, 'mean_lik.csv'))
+
+        pd.Series(fold_liks, index=[
+            f'fold_{i+1}' for i in range(n_folds)]).to_csv(
+                join(save_dir, 'fold_liks.csv'))
 
         return np.mean(fold_liks)
