@@ -163,7 +163,7 @@ def get_slurm_dask_client(n_workers, n_cores, n_processes):
                            queue="gpgpu",
                            job_extra=['--gres=gpu:1'])
 
-    cluster.start_workers(n_workers)
+    cluster.scale(n_workers)
     client = Client(cluster)
 
     return client
