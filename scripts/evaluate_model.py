@@ -1,4 +1,5 @@
 import os
+import uuid
 import gpflow
 import numpy as np
 from os.path import join
@@ -10,6 +11,8 @@ from sdm_ml.scikit_model import ScikitModel
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.gp.single_output_gp import SingleOutputGP
 from sdm_ml.gp.multi_output_gp import MultiOutputGP
+from sdm_ml.gp.cross_validated_multi_output_gp import \
+    CrossValidatedMultiOutputGP
 from ml_tools.utils import create_path_with_variables
 
 
@@ -36,6 +39,21 @@ def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
         verbose_fit=False, maxiter=10 if test_run else int(1E6))
 
     return so_gp
+
+
+def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
+                             cv_save_dir=None):
+
+    if cv_save_dir is None:
+        cv_save_dir = join('/tmp/', uuid.uuid4().hex)
+
+    n_inducing = 10 if test_run else 100
+    maxiter = 10 if test_run else int(1E6)
+
+    model = CrossValidatedMultiOutputGP(variances_to_try, cv_save_dir,
+                                        n_inducing=n_inducing, maxiter=maxiter)
+
+    return model
 
 
 def shuffle_train_set_order(training_set, seed=1):
@@ -145,23 +163,26 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = False
+    test_run = True
     output_base_dir = './experiments/evaluations/'
     min_presences = 5
 
-    datasets = NorbergDataset.fetch_all_norberg_sets()
+    # datasets = NorbergDataset.fetch_all_norberg_sets()
+    datasets = {}
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
     models = {
-        'mogp_strict': partial(get_multi_output_gp, n_inducing=100,
-                               n_kernels=10, add_bias=True,
-                               test_run=test_run, use_mean_function=False,
-                               w_prior=0.4),
-        'sogp': partial(get_single_output_gp, test_run=test_run,
-                        add_bias=True, add_priors=True,
-                        n_inducing=100),
-        'rf_cv': get_random_forest_cv,
-        'log_reg_cv': get_log_reg,
+        # 'mogp_strict': partial(get_multi_output_gp, n_inducing=100,
+        #                        n_kernels=10, add_bias=True,
+        #                        test_run=test_run, use_mean_function=False,
+        #                        w_prior=0.4),
+        # 'sogp': partial(get_single_output_gp, test_run=test_run,
+        #                 add_bias=True, add_priors=True,
+        #                 n_inducing=100),
+        # 'rf_cv': get_random_forest_cv,
+        # 'log_reg_cv': get_log_reg,
+        'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
+                           variances_to_try=np.linspace(0.1, 1., 1)**2)
     }
 
     target_dir = join(output_base_dir,

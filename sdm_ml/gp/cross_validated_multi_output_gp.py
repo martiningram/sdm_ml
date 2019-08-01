@@ -4,7 +4,7 @@ from os.path import join
 from .multi_output_gp import MultiOutputGP
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from functools import partial
-from shutil import copytree
+from distutils.dir_util import copy_tree
 
 
 class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
@@ -26,8 +26,6 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
 
         self.model_fun = partial(MultiOutputGP, n_inducing=n_inducing,
                                  n_latent=n_kernels, maxiter=maxiter)
-
-        pass
 
     def fit(self, X, y):
 
@@ -89,4 +87,4 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
         self.model.save_model(target_folder)
 
         # Copy over the cv results
-        copytree(self.cv_save_dir, join(target_folder, 'cv_results'))
+        copy_tree(self.cv_save_dir, join(target_folder, 'cv_results'))
