@@ -94,7 +94,7 @@ def discard_rare_species(training_set, test_set, min_presences=5):
 
 
 def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
-                        w_prior, test_run, use_mean_function):
+                        w_prior, test_run, use_mean_function, whiten=False):
 
     if use_mean_function:
         mean_fun = partial(MultiOutputGP.build_default_mean_function,
@@ -109,7 +109,7 @@ def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
 
     mogp = MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
                          kernel=mogp_kernel, maxiter=10 if test_run else
-                         int(1E6), mean_function=mean_fun)
+                         int(1E6), mean_function=mean_fun, whiten=whiten)
 
     return mogp
 
@@ -163,26 +163,26 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = True
+    test_run = False
     output_base_dir = './experiments/evaluations/'
     min_presences = 5
 
-    # datasets = NorbergDataset.fetch_all_norberg_sets()
-    datasets = {}
+    datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
     models = {
-        # 'mogp_strict': partial(get_multi_output_gp, n_inducing=100,
-        #                        n_kernels=10, add_bias=True,
-        #                        test_run=test_run, use_mean_function=False,
-        #                        w_prior=0.4),
+        'mogp_strict_no_white': partial(get_multi_output_gp, n_inducing=100,
+                                        n_kernels=10, add_bias=True,
+                                        test_run=test_run,
+                                        use_mean_function=False, w_prior=0.4,
+                                        whiten=False),
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
         # 'rf_cv': get_random_forest_cv,
         # 'log_reg_cv': get_log_reg,
-        'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
-                           variances_to_try=np.linspace(0.1, 1., 1)**2)
+        # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
+        #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
     }
 
     target_dir = join(output_base_dir,
