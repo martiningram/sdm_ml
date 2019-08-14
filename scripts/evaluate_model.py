@@ -14,6 +14,7 @@ from sdm_ml.gp.multi_output_gp import MultiOutputGP
 from sdm_ml.gp.cross_validated_multi_output_gp import \
     CrossValidatedMultiOutputGP
 from ml_tools.utils import create_path_with_variables
+from sdm_ml.base_rate_model import BaseRateModel
 
 
 def evaluate_model(training_set, test_set, model, output_dir):
@@ -121,6 +122,11 @@ def get_log_reg(n_dims, n_outcomes):
     return model
 
 
+def get_base_rate_model(n_dims, n_outcomes):
+
+    return ScikitModel(BaseRateModel)
+
+
 def get_random_forest_cv(n_dims, n_outcomes):
 
     model = ScikitModel(partial(ScikitModel.create_cross_validated_forest,
@@ -163,12 +169,12 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = True
+    test_run = False
     output_base_dir = './experiments/evaluations/'
     min_presences = 5
 
-    # datasets = NorbergDataset.fetch_all_norberg_sets()
-    datasets = {}
+    datasets = NorbergDataset.fetch_all_norberg_sets()
+    # datasets = {}
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
     models = {
@@ -181,8 +187,9 @@ if __name__ == '__main__':
         #                 n_inducing=100),
         # 'rf_cv': get_random_forest_cv,
         # 'log_reg_cv': get_log_reg,
-        'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
-                           variances_to_try=np.linspace(0.1, 1., 1)**2)
+        # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
+        #                    variances_to_try=np.linspace(0.1, 1., 1)**2)
+        'base_rate': get_base_rate_model
     }
 
     target_dir = join(output_base_dir,

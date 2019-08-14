@@ -5,6 +5,13 @@ from scipy.stats import norm
 from scipy.special import logsumexp
 from sklearn.cluster import MiniBatchKMeans, KMeans
 
+# Jax version
+import jax.numpy as jnp
+import jax.scipy as jsp
+from jax.scipy.stats import norm as jnorm
+from jax import jit
+from jax import random as jrandom
+
 
 def calculate_log_joint_bernoulli_likelihood(latent_prob_samples: np.ndarray,
                                              outcomes: np.ndarray) -> float:
@@ -26,6 +33,48 @@ def calculate_log_joint_bernoulli_likelihood(latent_prob_samples: np.ndarray,
 
     # Compute the Monte Carlo expectation
     return logsumexp(individual_liks - np.log(n_samples))
+
+
+@jit
+def calculate_log_joint_bernoulli_likelihood_jax(
+        latent_prob_samples: np.ndarray, outcomes: np.ndarray) -> float:
+    # latent_prob_samples is n_samples x n_outcomes array of probabilities on
+    # the probit scale
+    # outcomes is (n_outcomes,) array of binary outcomes (1 and 0)
+    assert(latent_prob_samples.shape[1] == outcomes.shape[0])
+
+    # Make sure broadcasting is unambiguous
+    assert(latent_prob_samples.shape[0] != outcomes.shape[0])
+
+    n_samples = latent_prob_samples.shape[0]
+
+    # Get log likelihood for each draw
+    individual_liks = jnp.sum(
+        outcomes * jnorm.logcdf(latent_prob_samples)
+        + (1 - outcomes) * jnorm.logcdf(-latent_prob_samples),
+        axis=1)
+
+    # Compute the Monte Carlo expectation
+    return jsp.special.logsumexp(individual_liks - np.log(n_samples))
+
+
+def jax_mvn_rvs(mean, cov, size, subkey, use_eigh=True):
+
+    if use_eigh:
+
+        l, x = jnp.linalg.eigh(cov)
+        mat_sqrt = x @ np.diag(np.sqrt(l))
+
+        import ipdb; ipdb.set_trace()
+
+    else:
+
+        mat_sqrt = jnp.linalg.cholesky(cov)
+
+    # Generate one sample
+    norm_draws = jrandom.normal(subkey, shape=size)
+
+    return norm_draws @ mat_sqrt.T
 
 
 def log_probability_via_sampling(means: np.ndarray, stdevs: np.ndarray,

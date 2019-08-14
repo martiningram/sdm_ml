@@ -40,8 +40,11 @@ def bootstrap_many(metric, y_t_df, y_p_df, n_samples=1000):
         cur_y_t = y_t_df[cur_outcome].values
         cur_y_p = y_p_df[cur_outcome].values
 
-        cur_metrics = bootstrap_metric(metric, cur_y_t, cur_y_p,
-                                       n_samples=n_samples)
+        try:
+            cur_metrics = bootstrap_metric(metric, cur_y_t, cur_y_p,
+                                           n_samples=n_samples)
+        except ValueError:
+            cur_metrics = np.zeros(n_samples) * np.nan
 
         results[cur_outcome] = cur_metrics
 
@@ -83,9 +86,7 @@ def load_sdm_ml_model_results_via_glob(base_dir):
     for cur_dir in to_use:
 
         model_name = base_name_from_path(cur_dir)
-
-        # Default args should do here
-        models[model_name] = load_from_base_dir(cur_dir)
+        models[model_name] = try_to_load_from_basedir(cur_dir)
 
     return models
 
@@ -140,38 +141,22 @@ def prepare_stan_data(bootstrap_df):
     return model_data, model_encoder, species_encoder
 
 
-if __name__ == '__main__':
+def try_to_load_from_basedir(*args):
 
-    import argparse
+    try:
+        result = load_from_base_dir(*args)
+        return result
+    except FileNotFoundError:
+        return None
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset-name', required=True, type=str)
-    parser.add_argument('--metric', required=True, type=str)
-    parser.add_argument('--test-run', required=False, action='store_true')
-    parser.add_argument('--target-base-dir', required=False, type=str,
-                        default='./bootstrap_mixed_result')
 
-    args = parser.parse_args()
-
-    dataset_name = args.dataset_name
-    test_run = args.test_run
-    metric = args.metric
-    target_dir = join(args.target_base_dir, f'/{dataset_name}/{metric}/')
-
-    os.makedirs(target_dir, exist_ok=True)
-
-    metric_lookup = {
-        'ap': average_precision_score,
-        'auc': roc_auc_score,
-    }
-
-    metric_fn = metric_lookup[metric]
-
+def load_recent_experiments(dataset_name, filter_missing=True):
+    # This is a helper function to load recent experiment runs.
     models = {
-        'mixed': load_from_base_dir(f'../../R/datasets/{dataset_name}',
-                                    'mixed_predictions', 'y_test'),
-        'brt': load_from_base_dir(f'../../R/datasets/{dataset_name}',
-                                  'brt_predictions', 'y_test')
+        'mixed': try_to_load_from_basedir(f'../../R/datasets/{dataset_name}',
+                                          'mixed_predictions', 'y_test'),
+        'brt': try_to_load_from_basedir(f'../../R/datasets/{dataset_name}',
+                                        'brt_predictions', 'y_test')
     }
 
     other_models = load_sdm_ml_model_results_via_glob(
@@ -185,6 +170,48 @@ if __name__ == '__main__':
         f'{dataset_name}')
 
     models.update(cv_models)
+
+    baserate_models = load_sdm_ml_model_results_via_glob(
+        f'./experiment_results/test_run=False, 2019-08-09 12:51:23.760702/'
+        f'{dataset_name}')
+
+    models.update(baserate_models)
+
+    if filter_missing:
+
+        # Filter out the ones we couldn't load
+        models = {x: y for x, y in models.items() if y is not None}
+
+    return models
+
+
+if __name__ == '__main__':
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset-name', required=True, type=str)
+    parser.add_argument('--metric', required=True, type=str)
+    parser.add_argument('--test-run', required=False, action='store_true')
+    parser.add_argument('--target-base-dir', required=True, type=str)
+    args = parser.parse_args()
+
+    dataset_name = args.dataset_name
+    test_run = args.test_run
+    metric = args.metric
+
+    target_dir = join(args.target_base_dir, f'{dataset_name}', f'{metric}')
+
+    os.makedirs(target_dir, exist_ok=True)
+
+    metric_lookup = {
+        'ap': average_precision_score,
+        'auc': roc_auc_score,
+    }
+
+    metric_fn = metric_lookup[metric]
+
+    models = load_recent_experiments(dataset_name)
 
     # TODO: Maybe add multiple metrics here
     bootstrap_results = calculate_model_bootstrap_results(
@@ -223,3 +250,5 @@ if __name__ == '__main__':
     model_draws = pd.concat([model_effect_draws, stacked_other_draws], axis=1)
 
     model_draws.to_csv(join(target_dir, f'draws.csv'))
+
+    model_draws.mean().to_csv(join(target_dir, 'draw_means.csv'))
