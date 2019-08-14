@@ -16,8 +16,10 @@ from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from ml_tools.utils import load_pickle_safely
 from autograd_gp.gpflow.helpers import load_saved_gpflow_model
 from autograd_gp.gpflow.helpers import compute_latent_predictions
-from .utils import calculate_log_joint_bernoulli_likelihood
+from .utils import (calculate_log_joint_bernoulli_likelihood_jax, jax_mvn_rvs,
+                    calculate_log_joint_bernoulli_likelihood)
 from .mean_functions import MultiOutputMeanFunction
+from jax import random as jrandom
 
 
 class MultiOutputGP(PresenceAbsenceModel):
@@ -25,7 +27,7 @@ class MultiOutputGP(PresenceAbsenceModel):
     def __init__(self, n_inducing, n_latent, kernel, maxiter=int(1E6),
                  train_inducing_points=True, seed=2, whiten=True,
                  verbose_fit=True, n_draws_predict=int(1E4),
-                 mean_function=lambda: None):
+                 mean_function=lambda: None, use_jax_random_for_lik=False):
 
         np.random.seed(seed)
 
@@ -42,6 +44,9 @@ class MultiOutputGP(PresenceAbsenceModel):
         self.m = None
         self.n_draws_predict = n_draws_predict
         self.mean_function = mean_function
+
+        self.jax_key = jrandom.PRNGKey(seed)
+        self.use_jax_random_for_lik = use_jax_random_for_lik
 
     def fit(self, X, y):
 
@@ -104,11 +109,19 @@ class MultiOutputGP(PresenceAbsenceModel):
         for i, (cur_mean, cur_cov, cur_y) in enumerate(
                 zip(means, covs, y_it)):
 
-            draws = np.random.multivariate_normal(
-                cur_mean, cur_cov, size=self.n_draws_predict)
-
-            log_liks[i] = calculate_log_joint_bernoulli_likelihood(
-                draws, cur_y)
+            if self.use_jax_random_for_lik:
+                self.jax_key, subkey = jrandom.split(self.jax_key)
+                draws = jax_mvn_rvs(
+                    cur_mean, cur_cov, size=(
+                        int(self.n_draws_predict), int(cur_mean.shape[0])),
+                    subkey=subkey)
+                log_liks[i] = calculate_log_joint_bernoulli_likelihood_jax(
+                    draws, cur_y)
+            else:
+                draws = np.random.multivariate_normal(
+                    cur_mean, cur_cov, size=self.n_draws_predict)
+                log_liks[i] = calculate_log_joint_bernoulli_likelihood(
+                    draws, cur_y)
 
         return log_liks
 

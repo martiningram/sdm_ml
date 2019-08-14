@@ -1,6 +1,5 @@
 import os
 import uuid
-import gpflow
 import numpy as np
 from os.path import join
 from functools import partial
@@ -9,11 +8,8 @@ from sdm_ml.dataset import BBSDataset, SpeciesData
 from sdm_ml.norberg_dataset import NorbergDataset
 from sdm_ml.scikit_model import ScikitModel
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
-from sdm_ml.gp.single_output_gp import SingleOutputGP
-from sdm_ml.gp.multi_output_gp import MultiOutputGP
-from sdm_ml.gp.cross_validated_multi_output_gp import \
-    CrossValidatedMultiOutputGP
 from ml_tools.utils import create_path_with_variables
+from sdm_ml.base_rate_model import BaseRateModel
 
 
 def evaluate_model(training_set, test_set, model, output_dir):
@@ -29,6 +25,8 @@ def evaluate_model(training_set, test_set, model, output_dir):
 def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
                          n_inducing):
 
+    from sdm_ml.gp.single_output_gp import SingleOutputGP
+
     # Fetch single output GP
     default_kernel_fun = partial(
         SingleOutputGP.build_default_kernel, n_dims=n_dims, add_bias=add_bias,
@@ -43,6 +41,9 @@ def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
 
 def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
                              cv_save_dir=None):
+
+    from sdm_ml.gp.cross_validated_multi_output_gp import \
+        CrossValidatedMultiOutputGP
 
     if cv_save_dir is None:
         cv_save_dir = join('/tmp/', uuid.uuid4().hex)
@@ -96,6 +97,8 @@ def discard_rare_species(training_set, test_set, min_presences=5):
 def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
                         w_prior, test_run, use_mean_function, whiten=False):
 
+    from sdm_ml.gp.multi_output_gp import MultiOutputGP
+
     if use_mean_function:
         mean_fun = partial(MultiOutputGP.build_default_mean_function,
                            n_outputs=n_outcomes)
@@ -119,6 +122,11 @@ def get_log_reg(n_dims, n_outcomes):
     model = ScikitModel()
 
     return model
+
+
+def get_base_rate_model(n_dims, n_outcomes):
+
+    return ScikitModel(BaseRateModel)
 
 
 def get_random_forest_cv(n_dims, n_outcomes):
@@ -171,11 +179,10 @@ if __name__ == '__main__':
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
     models = {
-        'mogp_strict_no_white': partial(get_multi_output_gp, n_inducing=100,
-                                        n_kernels=10, add_bias=True,
-                                        test_run=test_run,
-                                        use_mean_function=False, w_prior=0.4,
-                                        whiten=False),
+        'mogp_strict': partial(
+            get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
+            test_run=test_run, use_mean_function=False, w_prior=0.4,
+            whiten=True),
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
@@ -183,6 +190,7 @@ if __name__ == '__main__':
         # 'log_reg_cv': get_log_reg,
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
         #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
+        # 'base_rate': get_base_rate_model
     }
 
     target_dir = join(output_base_dir,
@@ -222,7 +230,8 @@ if __name__ == '__main__':
         for cur_model_name, cur_model_fn in models.items():
 
             # Make sure tf graph is clear
-            gpflow.reset_default_graph_and_session()
+            # TODO I may need to add this back in
+            # gpflow.reset_default_graph_and_session()
 
             cur_subdir = join(subdir, cur_model_name)
             os.makedirs(cur_subdir, exist_ok=True)
