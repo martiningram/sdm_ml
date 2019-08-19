@@ -10,12 +10,14 @@ import rpy2.robjects.numpy2ri
 # enough.
 class DismoBRT:
 
-    def __init__(self):
+    def __init__(self, max_fit_attempts=1000):
 
         # Find R file.
         cur_script_path = get_cur_script_path(__file__)
         cur_folder = os.path.split(cur_script_path)[0]
         self.brt_file = os.path.join(cur_folder, 'brt_fit.R')
+        self.max_fit_attempts = max_fit_attempts
+        self.fit_attempts = 0
 
         assert os.path.isfile(self.brt_file)
 
@@ -31,7 +33,15 @@ class DismoBRT:
         rpy2.robjects.numpy2ri.activate()
 
         self.fit_fun = robjects.r['brtFit']
-        self.n_tree, self.model = self.fit_fun(y, X)
+
+        r_type = 0
+        self.fit_attempts = 0
+
+        while r_type != 19 and self.fit_attempts < self.max_fit_attempts:
+
+            self.n_tree, self.model = self.fit_fun(y, X)
+            r_type = self.model.typeof
+            self.fit_attempts += 1
 
     def predict_log_proba(self, X):
 
@@ -39,7 +49,10 @@ class DismoBRT:
 
         self.predict_fun = robjects.r['brtPredict']
 
-        prob_pred = np.array(self.predict_fun(self.model, X, self.n_tree))
+        try:
+            prob_pred = np.array(self.predict_fun(self.model, X, self.n_tree))
+        except Exception:
+            prob_pred = np.zeros(X.shape[0]) * np.nan
 
         # Add on the zero class to be Scikit Learn compatible
         neg_class = 1 - prob_pred

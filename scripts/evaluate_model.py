@@ -7,6 +7,7 @@ from functools import partial
 from sdm_ml.dataset import BBSDataset, SpeciesData
 from sdm_ml.norberg_dataset import NorbergDataset
 from sdm_ml.scikit_model import ScikitModel
+from sdm_ml.brt.dismo_brt import DismoBRT
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from ml_tools.utils import create_path_with_variables
 from sdm_ml.base_rate_model import BaseRateModel
@@ -68,6 +69,11 @@ def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
                                         n_inducing=n_inducing, maxiter=maxiter)
 
     return model
+
+
+def get_brt(n_dims, n_outcomes):
+
+    return ScikitModel(DismoBRT)
 
 
 def shuffle_train_set_order(training_set, seed=1):
@@ -193,21 +199,23 @@ if __name__ == '__main__':
 
     datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
+    datasets = {x: y for x, y in datasets.items() if '3' not in x}
 
     models = {
-        # 'mogp_strict': partial(
-        #     get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
-        #     test_run=test_run, use_mean_function=False, w_prior=0.4,
-        #     whiten=True),
-        # 'sogp': partial(get_single_output_gp, test_run=test_run,
-        #                 add_bias=True, add_priors=True,
-        #                 n_inducing=100),
-        # 'rf_cv': get_random_forest_cv,
-        # 'log_reg_cv': get_log_reg,
+        'brt': get_brt,
+        'mogp_strict': partial(
+            get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
+            test_run=test_run, use_mean_function=False, w_prior=0.4,
+            whiten=True),
+        'sogp': partial(get_single_output_gp, test_run=test_run,
+                        add_bias=True, add_priors=True,
+                        n_inducing=100),
+        'rf_cv': get_random_forest_cv,
+        'log_reg_cv': get_log_reg,
+        'mixed_independent': get_mixed_stan
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
         #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
         # 'base_rate': get_base_rate_model
-        'mixed_independent': get_mixed_stan
     }
 
     target_dir = join(output_base_dir,

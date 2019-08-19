@@ -19,7 +19,6 @@ from autograd_gp.gpflow.helpers import compute_latent_predictions
 from .utils import (calculate_log_joint_bernoulli_likelihood_jax, jax_mvn_rvs,
                     calculate_log_joint_bernoulli_likelihood)
 from .mean_functions import MultiOutputMeanFunction
-from jax import random as jrandom
 
 
 class MultiOutputGP(PresenceAbsenceModel):
@@ -44,9 +43,11 @@ class MultiOutputGP(PresenceAbsenceModel):
         self.m = None
         self.n_draws_predict = n_draws_predict
         self.mean_function = mean_function
-
-        self.jax_key = jrandom.PRNGKey(seed)
         self.use_jax_random_for_lik = use_jax_random_for_lik
+
+        if self.use_jax_random_for_lik:
+            from jax import random as jrandom
+            self.jax_key = jrandom.PRNGKey(seed)
 
     def fit(self, X, y):
 
