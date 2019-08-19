@@ -10,6 +10,8 @@ from sdm_ml.scikit_model import ScikitModel
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from ml_tools.utils import create_path_with_variables
 from sdm_ml.base_rate_model import BaseRateModel
+from sdm_ml.hierarchical.independent_hierarchical_model import \
+    IndependentHierarchicalModel
 
 
 def evaluate_model(training_set, test_set, model, output_dir):
@@ -22,8 +24,16 @@ def evaluate_model(training_set, test_set, model, output_dir):
     compute_and_save_results_for_evaluation(test_set, model, output_dir)
 
 
+def get_mixed_stan(n_dims, n_outcomes):
+
+    return IndependentHierarchicalModel()
+
+
 def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
                          n_inducing):
+
+    import gpflow
+    gpflow.reset_default_graph_and_session()
 
     from sdm_ml.gp.single_output_gp import SingleOutputGP
 
@@ -41,6 +51,9 @@ def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
 
 def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
                              cv_save_dir=None):
+
+    import gpflow
+    gpflow.reset_default_graph_and_session()
 
     from sdm_ml.gp.cross_validated_multi_output_gp import \
         CrossValidatedMultiOutputGP
@@ -96,6 +109,9 @@ def discard_rare_species(training_set, test_set, min_presences=5):
 
 def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
                         w_prior, test_run, use_mean_function, whiten=False):
+
+    import gpflow
+    gpflow.reset_default_graph_and_session()
 
     from sdm_ml.gp.multi_output_gp import MultiOutputGP
 
@@ -179,10 +195,10 @@ if __name__ == '__main__':
     datasets['bbs'] = BBSDataset.init_using_env_variable()
 
     models = {
-        'mogp_strict': partial(
-            get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
-            test_run=test_run, use_mean_function=False, w_prior=0.4,
-            whiten=True),
+        # 'mogp_strict': partial(
+        #     get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
+        #     test_run=test_run, use_mean_function=False, w_prior=0.4,
+        #     whiten=True),
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
@@ -191,6 +207,7 @@ if __name__ == '__main__':
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
         #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
         # 'base_rate': get_base_rate_model
+        'mixed_independent': get_mixed_stan
     }
 
     target_dir = join(output_base_dir,
@@ -228,10 +245,6 @@ if __name__ == '__main__':
         subdir = join(target_dir, cur_dataset_name)
 
         for cur_model_name, cur_model_fn in models.items():
-
-            # Make sure tf graph is clear
-            # TODO I may need to add this back in
-            # gpflow.reset_default_graph_and_session()
 
             cur_subdir = join(subdir, cur_model_name)
             os.makedirs(cur_subdir, exist_ok=True)
