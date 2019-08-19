@@ -8,6 +8,7 @@ from functools import partial
 from sdm_ml.dataset import BBSDataset, SpeciesData
 from sdm_ml.norberg_dataset import NorbergDataset
 from sdm_ml.scikit_model import ScikitModel
+from sdm_ml.brt.dismo_brt import DismoBRT
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.gp.single_output_gp import SingleOutputGP
 from sdm_ml.gp.multi_output_gp import MultiOutputGP
@@ -55,6 +56,11 @@ def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
                                         n_inducing=n_inducing, maxiter=maxiter)
 
     return model
+
+
+def get_brt(n_dims, n_outcomes):
+
+    return ScikitModel(DismoBRT)
 
 
 def shuffle_train_set_order(training_set, seed=1):
@@ -169,7 +175,7 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = False
+    test_run = True
     output_base_dir = './experiments/evaluations/'
     min_presences = 5
 
@@ -189,7 +195,8 @@ if __name__ == '__main__':
         # 'log_reg_cv': get_log_reg,
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
         #                    variances_to_try=np.linspace(0.1, 1., 1)**2)
-        'base_rate': get_base_rate_model
+        # 'base_rate': get_base_rate_model
+        'brt': get_brt
     }
 
     target_dir = join(output_base_dir,

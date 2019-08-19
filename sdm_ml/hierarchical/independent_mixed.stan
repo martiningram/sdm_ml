@@ -17,7 +17,8 @@ transformed parameters {
     // Priors on coefficients
     matrix[n_cov, n_species] coefficients;
     for (i in 1:n_cov) {
-        coefficients[i, :] = coefficients_raw[i, :] * coeff_sd[i] + coeff_mean[i];
+        coefficients[i, :] = coefficients_raw[i, :] * coeff_sd[i] +
+	  coeff_mean[i];
     }
 }
 model {

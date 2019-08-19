@@ -47,6 +47,8 @@ def compute_and_save_results_for_evaluation(test_set: SpeciesData,
     metric_functions = {
         'log_loss': partial(mt.log_loss, labels=[False, True]),
         'ap_score': mt.average_precision_score,
+        'auc': lambda y_t, y_p: None if len(np.unique(y_t)) == 1 else
+        mt.roc_auc_score(y_t, y_p)
     }
 
     # Compute some summary statistics of potential interest
