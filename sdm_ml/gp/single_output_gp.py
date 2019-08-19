@@ -52,10 +52,10 @@ class SingleOutputGP(PresenceAbsenceModel):
                 k2 = gpflow.kernels.Bias(1)
 
                 if add_priors:
-                    # Equivalent to a N(0, 5**2) prior on the standard
+                    # Equivalent to a N(0, 1**2) prior on the standard
                     # deviation.
                     k2.variance.prior = gpflow.priors.Gamma(
-                        0.5, 2 * 5**2)
+                        0.5, 2 * 1**2)
 
         return kernel
 
