@@ -7,6 +7,7 @@ from ml_tools.stan import load_stan_model_cached
 from ml_tools.utils import save_pickle_safely
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
+from sdm_ml.gp.utils import calculate_log_joint_bernoulli_likelihood
 
 
 def add_intercept(X):
@@ -16,7 +17,7 @@ def add_intercept(X):
 
 class IndependentHierarchicalModel(PresenceAbsenceModel):
 
-    def __init__(self):
+    def __init__(self, log_lik_strategy='joint'):
 
         cur_path = split(get_cur_script_path(__file__))[0]
         stan_model_path = join(cur_path, 'independent_mixed.stan')
@@ -24,6 +25,9 @@ class IndependentHierarchicalModel(PresenceAbsenceModel):
         self.stan_model = load_stan_model_cached(stan_model_path)
         self.scaler = None
         self.is_fit = False
+
+        assert log_lik_strategy in ['marginal', 'joint']
+        self.log_lik_strategy = log_lik_strategy
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
 
@@ -39,7 +43,7 @@ class IndependentHierarchicalModel(PresenceAbsenceModel):
           'X': scaled_x
         }
 
-        self.fit = self.stan_model.sampling(data=stan_data)
+        self.stan_fit = self.stan_model.sampling(data=stan_data)
         self.is_fit = True
 
     def predict_log_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
@@ -49,13 +53,13 @@ class IndependentHierarchicalModel(PresenceAbsenceModel):
         test_x = self.scaler.transform(X)
         test_x = add_intercept(test_x)
 
-        n_species = self.fit['coefficients'].shape[-1]
+        n_species = self.stan_fit['coefficients'].shape[-1]
 
         y_pred = np.empty((test_x.shape[0], n_species, 2))
 
         for cur_species in range(n_species):
 
-            cur_coeff_draws = self.fit['coefficients'][..., cur_species]
+            cur_coeff_draws = self.stan_fit['coefficients'][..., cur_species]
             cur_logits = test_x @ cur_coeff_draws.T
             cur_probs = logistic.cdf(cur_logits)
             mean_probs = np.mean(cur_probs, axis=1)
@@ -68,10 +72,31 @@ class IndependentHierarchicalModel(PresenceAbsenceModel):
     def calculate_log_likelihood(self, X: np.ndarray, y: np.ndarray) \
             -> np.ndarray:
 
-        log_y_pred = self.predict_log_marginal_probabilities(X)
+        if self.log_lik_strategy == 'marginal':
 
-        site_log_lik = np.sum(
-            y * log_y_pred[..., 1] + (1 - y) * log_y_pred[..., 0], axis=1)
+            log_y_pred = self.predict_log_marginal_probabilities(X)
+
+            site_log_lik = np.sum(
+                y * log_y_pred[..., 1] + (1 - y) * log_y_pred[..., 0], axis=1)
+
+        else:
+
+            X = self.scaler.transform(X)
+            X = add_intercept(X)
+
+            joint_liks = np.zeros(X.shape[0])
+
+            for i, (cur_site, cur_y) in enumerate(zip(X, y)):
+
+                cur_preds = np.matmul(
+                    self.stan_fit['coefficients'].transpose(0, 2, 1), cur_site)
+
+                cur_probs = calculate_log_joint_bernoulli_likelihood(
+                    cur_preds, cur_y, link='logit')
+
+                joint_liks[i] = cur_probs
+
+            site_log_lik = joint_liks
 
         return site_log_lik
 

@@ -2,7 +2,7 @@ import os
 import gpflow
 import numpy as np
 from scipy.stats import norm
-from scipy.special import logsumexp
+from scipy.special import logsumexp, expit
 from sklearn.cluster import MiniBatchKMeans, KMeans
 
 # Jax version
@@ -13,8 +13,9 @@ from jax import jit
 from jax import random as jrandom
 
 
-def calculate_log_joint_bernoulli_likelihood(latent_prob_samples: np.ndarray,
-                                             outcomes: np.ndarray) -> float:
+def calculate_log_joint_bernoulli_likelihood(
+        latent_prob_samples: np.ndarray, outcomes: np.ndarray,
+        link: str = 'probit') -> float:
     # latent_prob_samples is n_samples x n_outcomes array of probabilities on
     # the probit scale
     # outcomes is (n_outcomes,) array of binary outcomes (1 and 0)
@@ -26,10 +27,20 @@ def calculate_log_joint_bernoulli_likelihood(latent_prob_samples: np.ndarray,
     n_samples = latent_prob_samples.shape[0]
 
     # Get log likelihood for each draw
-    individual_liks = np.sum(
-        outcomes * norm.logcdf(latent_prob_samples)
-        + (1 - outcomes) * norm.logcdf(-latent_prob_samples),
-        axis=1)
+
+    assert link in ['logit', 'probit'], \
+        'Only logit and probit links supported!'
+
+    if link == 'probit':
+        individual_liks = np.sum(
+            outcomes * norm.logcdf(latent_prob_samples)
+            + (1 - outcomes) * norm.logcdf(-latent_prob_samples),
+            axis=1)
+    else:
+        individual_liks = np.sum(
+            outcomes * np.log(expit(latent_prob_samples))
+            + (1 - outcomes) * np.log(1 - expit(latent_prob_samples)),
+            axis=1)
 
     # Compute the Monte Carlo expectation
     return logsumexp(individual_liks - np.log(n_samples))
@@ -64,8 +75,6 @@ def jax_mvn_rvs(mean, cov, size, subkey, use_eigh=True):
 
         l, x = jnp.linalg.eigh(cov)
         mat_sqrt = x @ np.diag(np.sqrt(l))
-
-        import ipdb; ipdb.set_trace()
 
     else:
 
