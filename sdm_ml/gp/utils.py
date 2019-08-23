@@ -6,11 +6,11 @@ from scipy.special import logsumexp, expit
 from sklearn.cluster import MiniBatchKMeans, KMeans
 
 # Jax version
-import jax.numpy as jnp
-import jax.scipy as jsp
-from jax.scipy.stats import norm as jnorm
-from jax import jit
-from jax import random as jrandom
+# import jax.numpy as jnp
+# import jax.scipy as jsp
+# from jax.scipy.stats import norm as jnorm
+# from jax import jit
+# from jax import random as jrandom
 
 
 def calculate_log_joint_bernoulli_likelihood(
@@ -46,7 +46,7 @@ def calculate_log_joint_bernoulli_likelihood(
     return logsumexp(individual_liks - np.log(n_samples))
 
 
-@jit
+# @jit
 def calculate_log_joint_bernoulli_likelihood_jax(
         latent_prob_samples: np.ndarray, outcomes: np.ndarray) -> float:
     # latent_prob_samples is n_samples x n_outcomes array of probabilities on

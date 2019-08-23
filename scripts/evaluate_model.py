@@ -1,6 +1,5 @@
 import os
 import uuid
-import gpflow
 import numpy as np
 from os.path import join
 from functools import partial
@@ -10,12 +9,10 @@ from sdm_ml.norberg_dataset import NorbergDataset
 from sdm_ml.scikit_model import ScikitModel
 from sdm_ml.brt.dismo_brt import DismoBRT
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
-from sdm_ml.gp.single_output_gp import SingleOutputGP
-from sdm_ml.gp.multi_output_gp import MultiOutputGP
-from sdm_ml.gp.cross_validated_multi_output_gp import \
-    CrossValidatedMultiOutputGP
 from ml_tools.utils import create_path_with_variables
 from sdm_ml.base_rate_model import BaseRateModel
+from sdm_ml.hierarchical.independent_hierarchical_model import \
+    IndependentHierarchicalModel
 
 
 def evaluate_model(training_set, test_set, model, output_dir):
@@ -28,8 +25,18 @@ def evaluate_model(training_set, test_set, model, output_dir):
     compute_and_save_results_for_evaluation(test_set, model, output_dir)
 
 
+def get_mixed_stan(n_dims, n_outcomes):
+
+    return IndependentHierarchicalModel()
+
+
 def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
                          n_inducing):
+
+    import gpflow
+    gpflow.reset_default_graph_and_session()
+
+    from sdm_ml.gp.single_output_gp import SingleOutputGP
 
     # Fetch single output GP
     default_kernel_fun = partial(
@@ -45,6 +52,12 @@ def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
 
 def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
                              cv_save_dir=None):
+
+    import gpflow
+    gpflow.reset_default_graph_and_session()
+
+    from sdm_ml.gp.cross_validated_multi_output_gp import \
+        CrossValidatedMultiOutputGP
 
     if cv_save_dir is None:
         cv_save_dir = join('/tmp/', uuid.uuid4().hex)
@@ -101,7 +114,12 @@ def discard_rare_species(training_set, test_set, min_presences=5):
 
 
 def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
-                        w_prior, test_run, use_mean_function):
+                        w_prior, test_run, use_mean_function, whiten=False):
+
+    import gpflow
+    gpflow.reset_default_graph_and_session()
+
+    from sdm_ml.gp.multi_output_gp import MultiOutputGP
 
     if use_mean_function:
         mean_fun = partial(MultiOutputGP.build_default_mean_function,
@@ -116,7 +134,7 @@ def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
 
     mogp = MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
                          kernel=mogp_kernel, maxiter=10 if test_run else
-                         int(1E6), mean_function=mean_fun)
+                         int(1E6), mean_function=mean_fun, whiten=whiten)
 
     return mogp
 
@@ -175,28 +193,29 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = True
+    test_run = False
     output_base_dir = './experiments/evaluations/'
     min_presences = 5
 
     datasets = NorbergDataset.fetch_all_norberg_sets()
-    # datasets = {}
     datasets['bbs'] = BBSDataset.init_using_env_variable()
+    datasets = {x: y for x, y in datasets.items() if '3' not in x}
 
     models = {
-        # 'mogp_strict': partial(get_multi_output_gp, n_inducing=100,
-        #                        n_kernels=10, add_bias=True,
-        #                        test_run=test_run, use_mean_function=False,
-        #                        w_prior=0.4),
-        # 'sogp': partial(get_single_output_gp, test_run=test_run,
-        #                 add_bias=True, add_priors=True,
-        #                 n_inducing=100),
-        # 'rf_cv': get_random_forest_cv,
-        # 'log_reg_cv': get_log_reg,
+        'brt': get_brt,
+        'mogp_strict': partial(
+            get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
+            test_run=test_run, use_mean_function=False, w_prior=0.4,
+            whiten=True),
+        'sogp': partial(get_single_output_gp, test_run=test_run,
+                        add_bias=True, add_priors=True,
+                        n_inducing=100),
+        'rf_cv': get_random_forest_cv,
+        'log_reg_cv': get_log_reg,
+        'mixed_independent': get_mixed_stan
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
-        #                    variances_to_try=np.linspace(0.1, 1., 1)**2)
+        #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
         # 'base_rate': get_base_rate_model
-        'brt': get_brt
     }
 
     target_dir = join(output_base_dir,
@@ -234,9 +253,6 @@ if __name__ == '__main__':
         subdir = join(target_dir, cur_dataset_name)
 
         for cur_model_name, cur_model_fn in models.items():
-
-            # Make sure tf graph is clear
-            gpflow.reset_default_graph_and_session()
 
             cur_subdir = join(subdir, cur_model_name)
             os.makedirs(cur_subdir, exist_ok=True)
