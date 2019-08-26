@@ -52,7 +52,7 @@ class ScikitModel(PresenceAbsenceModel):
         search = GridSearchCV(RandomForestClassifier(), param_grid={
             'n_estimators': [50, 100, 250, 500, 1000],
             'max_depth': [None, 1, 2, 5],
-            'max_features': max_features}, n_jobs=-1,
+            'max_features': max_features}, n_jobs=4,
             cv=4, scoring=scorer)
 
         return search

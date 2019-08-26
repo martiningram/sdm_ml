@@ -60,6 +60,7 @@ def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
         CrossValidatedMultiOutputGP
 
     if cv_save_dir is None:
+
         cv_save_dir = join('/tmp/', uuid.uuid4().hex)
 
     n_inducing = 10 if test_run else 100
@@ -194,7 +195,7 @@ def reduce_species(species_data, picked_species):
 if __name__ == '__main__':
 
     test_run = False
-    output_base_dir = './experiments/evaluations/'
+    output_base_dir = os.environ['SDM_ML_EVAL_PATH']
     min_presences = 5
 
     datasets = NorbergDataset.fetch_all_norberg_sets()
@@ -202,17 +203,17 @@ if __name__ == '__main__':
     datasets = {x: y for x, y in datasets.items() if '3' not in x}
 
     models = {
-        'brt': get_brt,
-        'mogp_strict': partial(
-            get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
-            test_run=test_run, use_mean_function=False, w_prior=0.4,
-            whiten=True),
-        'sogp': partial(get_single_output_gp, test_run=test_run,
-                        add_bias=True, add_priors=True,
-                        n_inducing=100),
-        'rf_cv': get_random_forest_cv,
-        'log_reg_cv': get_log_reg,
-        'mixed_independent': get_mixed_stan
+        # 'brt': get_brt,
+        # 'mogp_strict': partial(
+        #     get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
+        #     test_run=test_run, use_mean_function=False, w_prior=0.4,
+        #     whiten=True),
+        # 'sogp': partial(get_single_output_gp, test_run=test_run,
+        #                 add_bias=True, add_priors=True,
+        #                 n_inducing=100),
+        # 'rf_cv': get_random_forest_cv,
+        # 'log_reg_cv': get_log_reg,
+        'mixed_independent_joint_lik': get_mixed_stan
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
         #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
         # 'base_rate': get_base_rate_model

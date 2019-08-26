@@ -107,7 +107,7 @@ class IndependentHierarchicalModel(PresenceAbsenceModel):
         save_pickle_safely(self.scaler, join(target_folder, 'scaler.pkl'))
 
         with open(join(target_folder, 'fit.txt'), 'w') as f:
-            print(self.fit, file=f)
+            print(self.stan_fit, file=f)
 
         np.savez(join(target_folder, 'samples.npz'),
-                 **self.fit.extract())
+                 **self.stan_fit.extract())
