@@ -211,9 +211,9 @@ if __name__ == '__main__':
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
-        # 'rf_cv': get_random_forest_cv,
+        'rf_cv': get_random_forest_cv,
         # 'log_reg_cv': get_log_reg,
-        'mixed_independent_joint_lik': get_mixed_stan
+        # 'mixed_independent_joint_lik': get_mixed_stan
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
         #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
         # 'base_rate': get_base_rate_model

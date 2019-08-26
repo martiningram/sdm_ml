@@ -46,14 +46,13 @@ class ScikitModel(PresenceAbsenceModel):
         scorer = make_scorer(log_loss, greater_is_better=False, labels=[0, 1],
                              needs_proba=True)
 
-        max_features = [int(np.sqrt(8)), 2, 4]
-        max_features = [x for x in max_features if x <= n_covariates]
+        max_features = np.arange(2, n_covariates)
 
         search = GridSearchCV(RandomForestClassifier(), param_grid={
-            'n_estimators': [50, 100, 250, 500, 1000],
+            'n_estimators': [500],
             'max_depth': [None, 1, 2, 5],
-            'max_features': max_features}, n_jobs=4,
-            cv=4, scoring=scorer)
+            'max_features': max_features},
+            n_jobs=-1, cv=4, scoring=scorer)
 
         return search
 
