@@ -2,6 +2,8 @@ import os
 from os.path import join
 from functools import partial
 
+from ml_tools.paths import base_name_from_path
+from glob import glob
 import numpy as np
 import pandas as pd
 import sklearn.metrics as mt
@@ -65,3 +67,88 @@ def compute_and_save_results_for_evaluation(test_set: SpeciesData,
 
     mean_metrics.loc['mean_site_log_likelihood'] = mean_log_lik
     mean_metrics.to_csv(join(target_dir, 'summary_metrics.csv'))
+
+
+def load_from_base_dir(base_dir, y_p_name='marginal_species_predictions',
+                       y_t_name='y_t'):
+
+    y_p_df = pd.read_csv(join(base_dir, f'{y_p_name}.csv'), index_col=0)
+    y_t_df = pd.read_csv(join(base_dir, f'{y_t_name}.csv'), index_col=0)
+
+    return y_p_df, y_t_df
+
+
+def try_to_load_from_basedir(*args):
+
+    try:
+        result = load_from_base_dir(*args)
+        return result
+    except FileNotFoundError:
+        return None
+
+
+def load_sdm_ml_model_results_via_glob(base_dir):
+
+    models = dict()
+
+    to_use = glob(join(base_dir, '*'))
+
+    assert all(os.path.isdir(x) for x in to_use)
+
+    for cur_dir in to_use:
+
+        model_name = base_name_from_path(cur_dir)
+        models[model_name] = try_to_load_from_basedir(cur_dir)
+
+    return models
+
+
+def load_all_dataset_sdm_model_results(base_dir):
+
+    subdirs = glob(join(base_dir, '*'))
+    subdirs = [x for x in subdirs if os.path.isdir(x)]
+
+    basenames = [base_name_from_path(x) for x in subdirs]
+
+    return {x: load_sdm_ml_model_results_via_glob(y) for x, y in zip(
+        basenames, subdirs)}
+
+
+def load_all_dataset_joint_likelihood_summaries(base_dir):
+
+    subdirs = glob(join(base_dir, '*'))
+    subdirs = [x for x in subdirs if os.path.isdir(x)]
+
+    basenames = [base_name_from_path(x) for x in subdirs]
+
+    results = list()
+
+    for cur_subdir, cur_basename in zip(subdirs, basenames):
+
+        for cur_model_path in glob(join(cur_subdir, '*')):
+
+            assert os.path.isdir(cur_model_path)
+
+            cur_model_name = base_name_from_path(cur_model_path)
+
+            cur_lik_file = join(cur_model_path, 'test_site_likelihoods.csv')
+
+            if not os.path.isfile(cur_lik_file):
+                continue
+
+            loaded = pd.read_csv(cur_lik_file, index_col=0, header=None)
+
+            mean_lik = loaded.mean().values[0]
+            sd_lik = loaded.std().values[0]
+            sd_mean_lik = sd_lik / np.sqrt(loaded.shape[0])
+
+            results.append({
+                'base_dir': base_dir,
+                'mean_lik': mean_lik,
+                'sd_lik': sd_lik,
+                'sd_mean_lik': sd_mean_lik,
+                'model': cur_model_name,
+                'dataset': cur_basename}
+            )
+
+    return pd.DataFrame(results)
