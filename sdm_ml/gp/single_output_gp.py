@@ -57,6 +57,8 @@ class SingleOutputGP(PresenceAbsenceModel):
                     k2.variance.prior = gpflow.priors.Gamma(
                         0.5, 2 * 1**2)
 
+                kernel = kernel + k2
+
         return kernel
 
     def fit(self, X, y):
