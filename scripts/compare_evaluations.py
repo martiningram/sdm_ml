@@ -2,13 +2,12 @@ import os
 from os.path import join
 import pandas as pd
 import ml_tools.evaluation as mle
-from sdm_ml.evaluation import load_all_dataset_joint_likelihood_summaries
-from sdm_ml.evaluation import load_all_dataset_sdm_model_results
+from sdm_ml.evaluation import load_all_dataset_joint_likelihoods, \
+    load_all_dataset_sdm_model_results, \
+    compute_joint_lik_summaries_wrt_reference
 
 
 if __name__ == '__main__':
-
-    # TODO: Add joint log likelihood
 
     base_dirs = [
         './experiments/experiment_summaries/to_summarise/'
@@ -17,17 +16,22 @@ if __name__ == '__main__':
     target_dir = './experiments/experiment_summaries/'
     os.makedirs(target_dir, exist_ok=True)
 
-    # Get the likelihoods
-    results = pd.concat([load_all_dataset_joint_likelihood_summaries(x) for x
-                         in base_dirs], ignore_index=True)
+    reference_model = 'log_reg_cv'
 
-    results.to_csv(join(target_dir, 'joint_lik_summaries.csv'))
+    # Get all the joint likelihoods
+    joint_liks = [load_all_dataset_joint_likelihoods(x) for x in base_dirs]
+
+    # Find all the summaries
+    joint_lik_summaries = pd.concat(
+        [compute_joint_lik_summaries_wrt_reference(x, reference_model) for x
+         in joint_liks])
+
+    joint_lik_summaries.to_csv(join(target_dir, 'joint_lik_summaries_new.csv'))
 
     metrics = {'log_lik': mle.neg_log_loss_with_labels,
                'auc': mle.auc_with_nan}
 
-    reference_model = 'log_reg_cv'
-    n_bootstrap = 1000
+    n_bootstrap = 100
 
     all_diffs = list()
     all_baselines = list()
@@ -41,11 +45,23 @@ if __name__ == '__main__':
             cur_model_results = {x: y for x, y in cur_model_results.items()
                                  if y is not None}
 
+            # Add joint likelihood summary
+            assert len(joint_liks) == 1, \
+                'This code needs to be updated to handle multiple base dirs!'
+
+            ref_joint_liks = joint_liks[0][cur_dataset][reference_model]
+            mean, sd = mle.sample_mean_distribution_clt(ref_joint_liks)
+
             ref_y_p, ref_y_t = cur_model_results[reference_model]
             mean_ref_metrics = {
                 x: mle.bootstrap_multi_class_eval_and_summarise(
                     y, ref_y_t, ref_y_p, n_bootstrap) for x, y in
                 metrics.items()}
+
+            mean_ref_metrics['joint_log_lik'] = pd.Series({
+                'mean': mean,
+                'sd': sd
+            })
 
             mean_ref_metrics = pd.DataFrame(mean_ref_metrics)
 

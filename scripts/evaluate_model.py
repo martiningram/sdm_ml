@@ -115,7 +115,8 @@ def discard_rare_species(training_set, test_set, min_presences=5):
 
 
 def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
-                        w_prior, test_run, use_mean_function, whiten=False):
+                        w_prior, test_run, use_mean_function, bias_var,
+                        whiten=False):
 
     import gpflow
     gpflow.reset_default_graph_and_session()
@@ -131,7 +132,7 @@ def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
     # Fetch multi output GP
     mogp_kernel = MultiOutputGP.build_default_kernel(
         n_dims=n_dims, n_kernels=n_kernels, n_outputs=n_outcomes,
-        add_bias=add_bias, w_prior=w_prior)
+        add_bias=add_bias, w_prior=w_prior, bias_var=bias_var)
 
     mogp = MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
                          kernel=mogp_kernel, maxiter=10 if test_run else
@@ -198,20 +199,21 @@ if __name__ == '__main__':
     output_base_dir = os.environ['SDM_ML_EVAL_PATH']
     min_presences = 5
 
-    datasets = NorbergDataset.fetch_all_norberg_sets()
+    datasets = {}
+    # datasets = NorbergDataset.fetch_all_norberg_sets()
     datasets['bbs'] = BBSDataset.init_using_env_variable()
     datasets = {x: y for x, y in datasets.items() if '3' not in x}
 
     models = {
         # 'brt': get_brt,
-        # 'mogp_strict': partial(
-        #     get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
-        #     test_run=test_run, use_mean_function=False, w_prior=0.4,
-        #     whiten=True),
+        'mogp_strict_W_bias_flex': partial(
+            get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
+            test_run=test_run, use_mean_function=False, w_prior=0.1,
+            whiten=True, bias_var=4),
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
-        'rf_cv': get_random_forest_cv,
+        # 'rf_cv': get_random_forest_cv,
         # 'log_reg_cv': get_log_reg,
         # 'mixed_independent_joint_lik': get_mixed_stan
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,

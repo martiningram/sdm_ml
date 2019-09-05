@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 import sklearn.metrics as mt
 
+from collections import defaultdict
 from sdm_ml.dataset import SpeciesData
-from ml_tools.evaluation import multi_class_eval
+from ml_tools.evaluation import multi_class_eval, sample_mean_distribution_clt
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 
 
@@ -114,14 +115,17 @@ def load_all_dataset_sdm_model_results(base_dir):
         basenames, subdirs)}
 
 
-def load_all_dataset_joint_likelihood_summaries(base_dir):
+def load_all_dataset_joint_likelihoods(base_dir):
+
+    # Returns all test site likelihood DataFrames in a dictionary of
+    # dictionaries: dataset_name -> model_name -> df.
 
     subdirs = glob(join(base_dir, '*'))
     subdirs = [x for x in subdirs if os.path.isdir(x)]
 
     basenames = [base_name_from_path(x) for x in subdirs]
 
-    results = list()
+    results = defaultdict(dict)
 
     for cur_subdir, cur_basename in zip(subdirs, basenames):
 
@@ -136,19 +140,35 @@ def load_all_dataset_joint_likelihood_summaries(base_dir):
             if not os.path.isfile(cur_lik_file):
                 continue
 
-            loaded = pd.read_csv(cur_lik_file, index_col=0, header=None)
+            loaded = pd.read_csv(cur_lik_file, index_col=0, header=None)[1]
 
-            mean_lik = loaded.mean().values[0]
-            sd_lik = loaded.std().values[0]
-            sd_mean_lik = sd_lik / np.sqrt(loaded.shape[0])
+            results[cur_basename][cur_model_name] = loaded
+
+    return results
+
+
+def compute_joint_lik_summaries_wrt_reference(joint_liks, reference_name):
+
+    results = list()
+
+    for cur_dataset, cur_model_results in joint_liks.items():
+
+        reference_liks = cur_model_results[reference_name]
+
+        other_models = {x: y for x, y in cur_model_results.items() if x !=
+                        reference_name}
+
+        for cur_other_model, liks in other_models.items():
+
+            lik_diffs = liks - reference_liks
+
+            mean, mean_sd = sample_mean_distribution_clt(lik_diffs)
 
             results.append({
-                'base_dir': base_dir,
-                'mean_lik': mean_lik,
-                'sd_lik': sd_lik,
-                'sd_mean_lik': sd_mean_lik,
-                'model': cur_model_name,
-                'dataset': cur_basename}
-            )
+                'dataset': cur_dataset,
+                'model': cur_other_model,
+                'mean_diff': mean,
+                'mean_diff_sd': mean_sd
+            })
 
     return pd.DataFrame(results)
