@@ -206,10 +206,10 @@ if __name__ == '__main__':
 
     models = {
         # 'brt': get_brt,
-        'mogp_strict_W_bias_flex': partial(
-            get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
-            test_run=test_run, use_mean_function=False, w_prior=0.1,
-            whiten=True, bias_var=4),
+        # 'mogp_strict_W_bias_flex': partial(
+        #     get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
+        #     test_run=test_run, use_mean_function=False, w_prior=0.01,
+        #     whiten=True, bias_var=4),
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
@@ -219,6 +219,8 @@ if __name__ == '__main__':
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
         #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
         # 'base_rate': get_base_rate_model
+        'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
+                           variances_to_try=np.linspace(0.005, 0.4, 10))
     }
 
     target_dir = join(output_base_dir,

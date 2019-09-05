@@ -34,7 +34,7 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
 
         kern_fun = partial(self.kernel_fun, n_dims=n_dims, n_outputs=n_outputs)
 
-        def get_model(w_prior):
+        def get_model(w_prior, bias_var):
 
             # We need to make a model creation function.
             cur_kernel = kern_fun(w_prior=w_prior)
@@ -45,9 +45,13 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
 
         for cur_variance in self.variances_to_try:
 
-            print(f'Fitting {cur_variance:.2f}')
+            # Compute the bias variance so that we have a variance of 0.4
+            # for that overall
+            bias_var = 0.4 / cur_variance
 
-            model_fun = lambda: get_model(cur_variance) # NOQA
+            print(f'Fitting {cur_variance:.2f} with bias var {bias_var:.2f}')
+
+            model_fun = lambda: get_model(cur_variance, bias_var) # NOQA
 
             cur_mean_score = MultiOutputGP.cross_val_score(
                 X, y, model_fun, save_dir=join(
