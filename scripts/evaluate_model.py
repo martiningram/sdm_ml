@@ -136,7 +136,8 @@ def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
 
     mogp = MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
                          kernel=mogp_kernel, maxiter=10 if test_run else
-                         int(1E6), mean_function=mean_fun, whiten=whiten)
+                         int(1E6), mean_function=mean_fun, whiten=whiten,
+                         n_draws_predict=int(1E2) if test_run else int(1E4))
 
     return mogp
 
@@ -208,8 +209,8 @@ if __name__ == '__main__':
         # 'brt': get_brt,
         'mogp_strict_W_bias_flex': partial(
             get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
-            test_run=test_run, use_mean_function=False, w_prior=0.1,
-            whiten=True, bias_var=4),
+            test_run=test_run, use_mean_function=False, w_prior=0.01,
+            whiten=True, bias_var=40),
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
