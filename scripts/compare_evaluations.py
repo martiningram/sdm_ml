@@ -1,10 +1,36 @@
 import os
+import numpy as np
 from os.path import join
 import pandas as pd
 import ml_tools.evaluation as mle
 from sdm_ml.evaluation import load_all_dataset_joint_likelihoods, \
     load_all_dataset_sdm_model_results, \
     compute_joint_lik_summaries_wrt_reference
+
+
+def richness_vs_reference(y_p_df, y_t_df, ref_y_p_df):
+
+    assert np.all(y_t_df.columns == y_p_df.columns)
+
+    ref_richness = mle.richness_rmse(y_t_df.values, ref_y_p_df.values)
+    model_richness = mle.richness_rmse(y_t_df.values, y_p_df.values)
+
+    return model_richness - ref_richness
+
+
+def bootstrap_richness(y_p_df, y_t_df, ref_y_p_df, n_bootstraps):
+
+    bootstrap_results = mle.bootstrap_fun(
+        richness_vs_reference, y_p_df, y_t_df, ref_y_p_df,
+        n_bootstraps=n_bootstraps, show_progress=False)
+
+    mean_diff = np.mean(bootstrap_results)
+    std_diff = np.std(bootstrap_results)
+
+    return {
+        'diff_mean': mean_diff,
+        'diff_sd': std_diff
+    }
 
 
 if __name__ == '__main__':
@@ -63,16 +89,43 @@ if __name__ == '__main__':
                 'sd': sd
             })
 
+            # Also calculate richness RMSE
+            richness_bootstraps = mle.bootstrap_fun(
+                mle.richness_rmse, ref_y_t.values, ref_y_p.values,
+                n_bootstraps=n_bootstrap, show_progress=False,
+                is_df=False)
+
+            rmse_mean, rmse_sd = (np.mean(richness_bootstraps),
+                                  np.std(richness_bootstraps))
+
+            mean_ref_metrics['richness_rmse'] = pd.Series({
+                'mean': rmse_mean,
+                'sd': rmse_sd
+            })
+
             mean_ref_metrics = pd.DataFrame(mean_ref_metrics)
 
             mean_ref_metrics['model'] = reference_model
             mean_ref_metrics['dataset'] = cur_dataset
             mean_ref_metrics['base_dir'] = cur_base_dir
+            mean_ref_metrics['n_species'] = len(ref_y_t.columns)
 
             try:
                 diffs = mle.compute_model_differences(
                     cur_model_results, metrics, reference_model,
                     verbose=True, n_bootstrap=n_bootstrap)
+                richness_diffs = {
+                    x: bootstrap_richness(y[0], ref_y_t, ref_y_p,
+                                          n_bootstraps=n_bootstrap)
+                    for x, y in cur_model_results.items()
+                    if x != reference_model}
+                richness_diffs = pd.DataFrame(richness_diffs).T
+                richness_diffs.index.name = 'model'
+                richness_diffs = richness_diffs.reset_index(drop=False)
+                richness_diffs['metric'] = 'richness_rmse'
+                diffs = pd.concat([diffs, richness_diffs], ignore_index=True,
+                                  sort=True)
+                diffs = diffs.sort_values(['model', 'metric'])
             except Exception as e:
                 print(f'Unable to process {cur_dataset} because of exception:')
                 print(e)
@@ -81,6 +134,7 @@ if __name__ == '__main__':
 
             diffs['dataset'] = cur_dataset
             diffs['base_dir'] = cur_base_dir
+            diffs['n_species'] = len(ref_y_t.columns)
 
             all_diffs.append(diffs)
             all_baselines.append(mean_ref_metrics)
