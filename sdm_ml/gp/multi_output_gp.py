@@ -259,7 +259,7 @@ class MultiOutputGP(PresenceAbsenceModel):
 
             log_liks = model.calculate_log_likelihood(cur_test_x, cur_test_y)
 
-            fold_liks[i] = np.sum(log_liks)
+            fold_liks[i] = np.mean(log_liks)
 
             np.savez(join(cur_save_dir, 'cv_results'),
                      site_log_liks=log_liks,
@@ -277,4 +277,4 @@ class MultiOutputGP(PresenceAbsenceModel):
             f'fold_{i+1}' for i in range(n_folds)]).to_csv(
                 join(save_dir, 'fold_liks.csv'))
 
-        return np.mean(fold_liks)
+        return np.mean(fold_liks), np.std(fold_liks) / np.sqrt(len(fold_liks))

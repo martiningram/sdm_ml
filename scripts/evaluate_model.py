@@ -195,7 +195,7 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = False
+    test_run = True
     output_base_dir = os.environ['SDM_ML_EVAL_PATH']
     min_presences = 5
 

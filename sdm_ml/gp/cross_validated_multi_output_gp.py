@@ -1,10 +1,50 @@
 import numpy as np
+import pandas as pd
 import gpflow as gpf
 from os.path import join
 from .multi_output_gp import MultiOutputGP
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from functools import partial
 from distutils.dir_util import copy_tree
+
+
+def select_using_standard_error_rule(means: np.ndarray,
+                                     stderrs: np.ndarray) -> int:
+    """Selects result according to one standard error rule (see ESL p.244).
+
+    Args:
+        means: Mean errors obtained by cross validation [lower is better].
+        stderrs: Standard errors obtained from cross validation.
+
+    Note:
+        The arrays are assumed to be sorted by ascending complexity of the
+        model used to fit them.
+
+    Returns:
+        The index of the element within a standard deviation of the best
+        mean error.
+    """
+
+    indices = np.arange(len(means))
+
+    best_mean_idx = np.argmin(means)
+    best_mean, best_stderr = means[best_mean_idx], stderrs[best_mean_idx]
+
+    max_acceptable = best_mean + best_stderr
+    less_complex = means[:best_mean_idx]
+    remaining_indices = indices[:best_mean_idx]
+
+    # If the best mean is the smallest, nothing to do
+    if less_complex.shape[0] == 0:
+        return best_mean_idx
+
+    # Otherwise, assess the less complex results
+    relevant_indices = remaining_indices[less_complex < max_acceptable]
+
+    if relevant_indices.shape[0] == 0:
+        return best_mean_idx
+    else:
+        return relevant_indices.min()
 
 
 class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
@@ -41,7 +81,7 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
             model_fun = partial(self.model_fun, kernel=cur_kernel)
             return model_fun()
 
-        mean_scores = list()
+        scores = list()
 
         for cur_variance in self.variances_to_try:
 
@@ -53,7 +93,7 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
 
             model_fun = lambda: get_model(cur_variance, bias_var) # NOQA
 
-            cur_mean_score = MultiOutputGP.cross_val_score(
+            cur_mean_score, cur_stderr = MultiOutputGP.cross_val_score(
                 X, y, model_fun, save_dir=join(
                     self.cv_save_dir, f'{cur_variance:.2f}'),
                 n_folds=self.n_folds)
@@ -62,14 +102,24 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
 
             print(f'Mean likelihood is {cur_mean_score}')
 
-            mean_scores.append(cur_mean_score)
+            scores.append({'mean': cur_mean_score, 'stderr': cur_stderr,
+                           'variance': cur_variance})
 
-        mean_scores = np.array(mean_scores)
-        best_score = np.argmax(mean_scores)
-        best_variance = self.variances_to_try[best_score]
+        scores = pd.DataFrame(scores)
 
-        print(f'Best score of {mean_scores[best_score]:.2f} obtained by '
-              f'setting prior variance to {best_variance:.2f}')
+        # Sort by ascending complexity
+        scores.sort_values('variance')
+
+        # Find best index; invert mean since error rule expects errors,
+        # where smaller is better, rather than likelihoods where higher is
+        # better.
+        best_idx = select_using_standard_error_rule(
+            -scores['mean'].values, scores['stderr'].values)
+
+        best_variance = scores.iloc[best_idx]['variance']
+
+        print(f'Selected model using one standard error rule has variance '
+              f' {best_variance:.2f}')
 
         best_model = get_model(best_variance)
 
