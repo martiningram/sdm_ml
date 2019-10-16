@@ -53,12 +53,7 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         self.Z = find_starting_z(X, self.n_inducing, use_minibatching=False)
 
-        # Values at the inducing points.
-        # M inducing points; L different outputs.
-        # This is presumably the variational mean.
         q_mu = np.zeros((M, L))
-        # This is presumably the variational covariance. Not sure why it's
-        # sqrt.
         q_sqrt = np.repeat(np.eye(M)[None, ...], L, axis=0) * 1.0
 
         feature = mf.MixedKernelSharedMof(gpf.features.InducingPoints(self.Z))
