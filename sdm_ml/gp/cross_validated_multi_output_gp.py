@@ -95,7 +95,7 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
 
             cur_mean_score, cur_stderr = MultiOutputGP.cross_val_score(
                 X, y, model_fun, save_dir=join(
-                    self.cv_save_dir, f'{cur_variance:.2f}'),
+                    self.cv_save_dir, f'{cur_variance:.4f}'),
                 n_folds=self.n_folds)
 
             gpf.reset_default_graph_and_session()
@@ -108,7 +108,7 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
         scores = pd.DataFrame(scores)
 
         # Sort by ascending complexity
-        scores.sort_values('variance')
+        scores = scores.sort_values('variance')
 
         # Find best index; invert mean since error rule expects errors,
         # where smaller is better, rather than likelihoods where higher is
