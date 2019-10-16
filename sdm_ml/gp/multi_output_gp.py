@@ -18,6 +18,8 @@ from autograd_gp.gpflow.helpers import load_saved_gpflow_model
 from autograd_gp.gpflow.helpers import compute_latent_predictions
 from .utils import calculate_log_joint_bernoulli_likelihood
 from .mean_functions import MultiOutputMeanFunction
+from sdm_ml.evaluation import compute_and_save_results_for_evaluation
+from ml_tools.evaluation import neg_log_loss_with_labels, multi_class_eval
 
 
 class MultiOutputGP(PresenceAbsenceModel):
@@ -258,6 +260,22 @@ class MultiOutputGP(PresenceAbsenceModel):
             cur_test_y = y[cur_test_ind]
 
             log_liks = model.calculate_log_likelihood(cur_test_x, cur_test_y)
+            marg_pred = pd.DataFrame(
+                model.predict_marginal_probabilities(cur_test_x))
+
+            marg_pred.to_csv(join(cur_save_dir, 'marginal_probs.csv'))
+            pd.DataFrame(cur_test_y).to_csv(join(cur_save_dir, 'y_t.csv'))
+
+            # I am also interested in the log loss.
+            y_t_df = pd.DataFrame(cur_test_y)
+            neg_log_loss_results = multi_class_eval(
+                marg_pred, y_t_df, neg_log_loss_with_labels, 'log_lik')
+
+            neg_log_loss_results.to_csv(join(
+                cur_save_dir, 'marginal_species_log_lik.csv'))
+
+            pd.Series(neg_log_loss_results.mean()).to_csv(
+                join(cur_save_dir, 'neg_log_loss_mean.csv'))
 
             fold_liks[i] = np.mean(log_liks)
 

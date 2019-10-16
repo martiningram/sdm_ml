@@ -62,7 +62,7 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
         self.kernel_fun = partial(
             MultiOutputGP.build_default_kernel, n_kernels=n_kernels,
             add_bias=add_bias, kern_var_trainable=kern_var_trainable,
-            rbf_var=rbf_var, bias_var=bias_var)
+            rbf_var=rbf_var)
 
         self.model_fun = partial(MultiOutputGP, n_inducing=n_inducing,
                                  n_latent=n_kernels, maxiter=maxiter)
@@ -77,7 +77,7 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
         def get_model(w_prior, bias_var):
 
             # We need to make a model creation function.
-            cur_kernel = kern_fun(w_prior=w_prior)
+            cur_kernel = kern_fun(w_prior=w_prior, bias_var=bias_var)
             model_fun = partial(self.model_fun, kernel=cur_kernel)
             return model_fun()
 
@@ -121,7 +121,9 @@ class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
         print(f'Selected model using one standard error rule has variance '
               f' {best_variance:.2f}')
 
-        best_model = get_model(best_variance)
+        bias_var = 0.4 / best_variance
+
+        best_model = get_model(best_variance, bias_var)
 
         best_model.fit(X, y)
 
