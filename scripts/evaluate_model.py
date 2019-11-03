@@ -205,7 +205,7 @@ def reduce_species(species_data, picked_species):
 
 if __name__ == '__main__':
 
-    test_run = True
+    test_run = False
     output_base_dir = os.environ['SDM_ML_EVAL_PATH']
     min_presences = 5
 
@@ -233,9 +233,9 @@ if __name__ == '__main__':
         # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
         #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
         # 'base_rate': get_base_rate_model
-        # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
-        #                    variances_to_try=np.linspace(0.005, 0.4, 10),
-        #                    cv_save_dir=join(target_dir, 'cv_results'))
+        'mogp_cv_one_se': partial(get_cross_validated_mogp, test_run=test_run,
+                                  variances_to_try=np.linspace(0.005, 0.4, 10),
+                                  cv_save_dir=join(target_dir, 'cv_results'))
     }
 
     for cur_dataset_name, cur_dataset in datasets.items():
