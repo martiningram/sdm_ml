@@ -111,6 +111,7 @@ model.save_model('./saved_mogp')
 
 This is the recommended way to go for new datasets. It currently only works with
 the default kernel, and adjusts the bias kernel's variance to be 0.4 throughout.
+TODO: Add info about how to rerun all models on BBS & Norberg sets
 
 ```python
 from sdm_ml.gp.cross_validated_multi_output_gp import \
