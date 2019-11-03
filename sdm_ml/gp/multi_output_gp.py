@@ -16,8 +16,7 @@ from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from ml_tools.utils import load_pickle_safely
 from autograd_gp.gpflow.helpers import load_saved_gpflow_model
 from autograd_gp.gpflow.helpers import compute_latent_predictions
-from .utils import (calculate_log_joint_bernoulli_likelihood_jax, jax_mvn_rvs,
-                    calculate_log_joint_bernoulli_likelihood)
+from .utils import calculate_log_joint_bernoulli_likelihood
 from .mean_functions import MultiOutputMeanFunction
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from ml_tools.evaluation import neg_log_loss_with_labels, multi_class_eval
@@ -28,7 +27,7 @@ class MultiOutputGP(PresenceAbsenceModel):
     def __init__(self, n_inducing, n_latent, kernel, maxiter=int(1E6),
                  train_inducing_points=True, seed=2, whiten=True,
                  verbose_fit=True, n_draws_predict=int(1E4),
-                 mean_function=lambda: None, use_jax_random_for_lik=False):
+                 mean_function=lambda: None):
 
         np.random.seed(seed)
 
@@ -45,11 +44,6 @@ class MultiOutputGP(PresenceAbsenceModel):
         self.m = None
         self.n_draws_predict = n_draws_predict
         self.mean_function = mean_function
-        self.use_jax_random_for_lik = use_jax_random_for_lik
-
-        if self.use_jax_random_for_lik:
-            from jax import random as jrandom
-            self.jax_key = jrandom.PRNGKey(seed)
 
     def fit(self, X, y):
 
@@ -61,12 +55,7 @@ class MultiOutputGP(PresenceAbsenceModel):
 
         self.Z = find_starting_z(X, self.n_inducing, use_minibatching=False)
 
-        # Values at the inducing points.
-        # M inducing points; L different outputs.
-        # This is presumably the variational mean.
         q_mu = np.zeros((M, L))
-        # This is presumably the variational covariance. Not sure why it's
-        # sqrt.
         q_sqrt = np.repeat(np.eye(M)[None, ...], L, axis=0) * 1.0
 
         feature = mf.MixedKernelSharedMof(gpf.features.InducingPoints(self.Z))
@@ -112,19 +101,10 @@ class MultiOutputGP(PresenceAbsenceModel):
         for i, (cur_mean, cur_cov, cur_y) in enumerate(
                 zip(means, covs, y_it)):
 
-            if self.use_jax_random_for_lik:
-                self.jax_key, subkey = jrandom.split(self.jax_key)
-                draws = jax_mvn_rvs(
-                    cur_mean, cur_cov, size=(
-                        int(self.n_draws_predict), int(cur_mean.shape[0])),
-                    subkey=subkey)
-                log_liks[i] = calculate_log_joint_bernoulli_likelihood_jax(
-                    draws, cur_y)
-            else:
-                draws = np.random.multivariate_normal(
-                    cur_mean, cur_cov, size=self.n_draws_predict)
-                log_liks[i] = calculate_log_joint_bernoulli_likelihood(
-                    draws, cur_y)
+            draws = np.random.multivariate_normal(
+                cur_mean, cur_cov, size=self.n_draws_predict)
+            log_liks[i] = calculate_log_joint_bernoulli_likelihood(
+                draws, cur_y)
 
         return log_liks
 
@@ -297,9 +277,7 @@ class MultiOutputGP(PresenceAbsenceModel):
             pd.Series(neg_log_loss_results.mean()).to_csv(
                 join(cur_save_dir, 'neg_log_loss_mean.csv'))
 
-            fold_liks[i] = np.sum(log_liks)
-
-            # TODO: Maybe also evaluate stuff like log loss (marginal)
+            fold_liks[i] = np.mean(log_liks)
 
             np.savez(join(cur_save_dir, 'cv_results'),
                      site_log_liks=log_liks,
@@ -317,4 +295,4 @@ class MultiOutputGP(PresenceAbsenceModel):
             f'fold_{i+1}' for i in range(n_folds)]).to_csv(
                 join(save_dir, 'fold_liks.csv'))
 
-        return np.mean(fold_liks)
+        return np.mean(fold_liks), np.std(fold_liks) / np.sqrt(len(fold_liks))
