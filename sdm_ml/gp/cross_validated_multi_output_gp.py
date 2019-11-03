@@ -50,8 +50,8 @@ def select_using_standard_error_rule(means: np.ndarray,
 class CrossValidatedMultiOutputGP(PresenceAbsenceModel):
 
     def __init__(self, variances_to_try, cv_save_dir, n_folds=4, n_kernels=10,
-                 add_bias=True, rbf_var=0.1, bias_var=0.1,
-                 kern_var_trainable=False, n_inducing=100, maxiter=int(1E6)):
+                 add_bias=True, rbf_var=0.1, kern_var_trainable=False,
+                 n_inducing=100, maxiter=int(1E6)):
 
         self.model = None
         self.is_fit = False
