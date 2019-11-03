@@ -14,11 +14,10 @@ from .utils import (find_starting_z, save_gpflow_model,
                     log_probability_via_sampling)
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from ml_tools.utils import load_pickle_safely
-from autograd_gp.gpflow.helpers import load_saved_gpflow_model
 from autograd_gp.gpflow.helpers import compute_latent_predictions
-from .utils import calculate_log_joint_bernoulli_likelihood
+from .utils import (calculate_log_joint_bernoulli_likelihood,
+                    load_saved_gpflow_model)
 from .mean_functions import MultiOutputMeanFunction
-from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from ml_tools.evaluation import neg_log_loss_with_labels, multi_class_eval
 
 
