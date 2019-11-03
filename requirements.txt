@@ -1,5 +1,4 @@
 tqdm
-gpflow
-tensorflow
+tensorflow==1.14
 scikit-learn
 pandas
