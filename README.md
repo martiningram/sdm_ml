@@ -155,3 +155,31 @@ print(f'The log likelihood at each site is: {train_lik}')
 # Finally, we save the model results in case we want to look at them later
 model.save_model('./saved_mogp_cv')
 ```
+
+### Reproducing the paper experiments
+
+Code to run the experiments in the paper can be found in the script:
+
+`scripts/evaluate_model.py`
+
+To run this code, you will have to obtain the datasets used in the paper:
+
+* The breeding bird survey dataset can be fetched using the helpers in this
+  repository: [repo](https://github.com/martiningram/bbs_bird_mistnet_split).
+  Once downloaded, please set the environment variable `BBS_PATH` to point to
+  the folder `csv_bird_data` generated.
+* The datasets used in Anna Norberg's review paper are available here: [zenodo
+  link](https://zenodo.org/record/2637812#.XeSjab9S-u4). Once downloaded, please
+  set the environment variable `NORBERG_PATH` to point to the `DATA` folder in
+  that dataset containing the individual `.csv` files.
+
+Please also set the environment variable `SDM_ML_EVAL_PATH` to the directory you
+would like to save results to.
+
+In the script, you will find a dictionary called `models` which defines which
+models are run. You can comment and uncomment them to select which to run.
+Please note that trying to run all of them at once may consume too much RAM on
+your machine. If you run into trouble, try running them a few at a time.
+
+Please note also that the MOGP and SOGP models benefit strongly from GPU
+acceleration and will run much more quickly if one is available.
