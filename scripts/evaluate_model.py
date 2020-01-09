@@ -73,6 +73,15 @@ def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
     return model
 
 
+def get_hierarchical_mogp(n_dims, n_outcomes, n_inducing, n_latent, kernel):
+
+    from sdm_ml.gp.hierarchical_mogp import HierarchicalMOGP
+
+    model = HierarchicalMOGP(n_inducing, n_latent, kernel)
+
+    return model
+
+
 def get_brt(n_dims, n_outcomes):
 
     return ScikitModel(DismoBRT)
@@ -218,16 +227,19 @@ if __name__ == '__main__':
                       create_path_with_variables(test_run=test_run))
 
     models = {
-        'brt': get_brt,
-        'sogp': partial(get_single_output_gp, test_run=test_run,
-                        add_bias=True, add_priors=True,
-                        n_inducing=100),
-        'rf_cv': get_random_forest_cv,
-        'log_reg_unreg': get_log_reg_unregularised,
-        'mixed_independent_joint_lik': get_mixed_stan,
-        'mogp_cv_one_se': partial(get_cross_validated_mogp, test_run=test_run,
-                                  variances_to_try=np.linspace(0.005, 0.4, 10),
-                                  cv_save_dir=join(target_dir, 'cv_results'))
+        # 'brt': get_brt,
+        # 'sogp': partial(get_single_output_gp, test_run=test_run,
+        #                 add_bias=True, add_priors=True,
+        #                 n_inducing=100),
+        # 'rf_cv': get_random_forest_cv,
+        # 'log_reg_unreg': get_log_reg_unregularised,
+        # 'mixed_independent_joint_lik': get_mixed_stan,
+        # 'mogp_cv_one_se': partial(get_cross_validated_mogp, test_run=test_run,
+        #                           variances_to_try=np.linspace(0.005, 0.4, 10),
+        #                           cv_save_dir=join(target_dir, 'cv_results'))
+        'hierarchical_mogp_10': partial(get_hierarchical_mogp,
+                                        n_inducing=100,
+                                        n_latent=10)
     }
 
     for cur_dataset_name, cur_dataset in datasets.items():
