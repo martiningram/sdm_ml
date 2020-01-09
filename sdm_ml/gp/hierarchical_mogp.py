@@ -1,7 +1,11 @@
+import os
+import pickle
 import numpy as np
-from svgp.tf.mogp_classifier import fit, predict_probs
+from tqdm import tqdm
+from svgp.tf.mogp_classifier import fit, predict_probs, predict_f_samples
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
+from ml_tools.normals import calculate_log_joint_bernoulli_likelihood
 
 
 class HierarchicalMOGP(PresenceAbsenceModel):
@@ -17,6 +21,18 @@ class HierarchicalMOGP(PresenceAbsenceModel):
 
         self.scaler = None
         self.fit_result = None
+
+    @classmethod
+    def from_fit_result(cls, fit_result, scaler):
+
+        base_object = cls(n_inducing=fit_result.mu.shape[1],
+                          n_latent=fit_result.mu.shape[0],
+                          kernel=fit_result.kernel)
+
+        base_object.fit_result = fit_result
+        base_object.scaler = scaler
+
+        return base_object
 
     def fit(self, X, y):
 
@@ -36,3 +52,31 @@ class HierarchicalMOGP(PresenceAbsenceModel):
                                    n_draws=self.n_draws_predict)
 
         return np.log(pred_probs)
+
+    def calculate_log_likelihood(self, X, y):
+
+        X = self.scaler.transform(X)
+
+        site_iterator = predict_f_samples(self.fit_result, X,
+                                          self.n_draws_predict)
+
+        log_liks = np.zeros(X.shape[0])
+
+        for i, cur_site_draws in enumerate(tqdm(site_iterator)):
+
+            log_liks[i] = calculate_log_joint_bernoulli_likelihood(
+                cur_site_draws, y[i])
+
+        return log_liks
+
+    def save_model(self, target_folder):
+
+        os.makedirs(target_folder, exist_ok=True)
+
+        # Save the results file
+        np.savez(os.path.join(target_folder, 'results_file'),
+                 **self.fit_result._asdict())
+
+        # Save the scaler
+        with open(os.path.join(target_folder, 'scaler.pkl'), 'wb') as f:
+            pickle.dump(self.scaler, f)
