@@ -1,4 +1,5 @@
 import os
+import time
 import uuid
 import numpy as np
 from os.path import join
@@ -11,21 +12,29 @@ from sdm_ml.brt.dismo_brt import DismoBRT
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from ml_tools.utils import create_path_with_variables
 from sdm_ml.base_rate_model import BaseRateModel
-from sdm_ml.hierarchical.independent_hierarchical_model import \
-    IndependentHierarchicalModel
+from sklearn.linear_model import LogisticRegression
 
 
 def evaluate_model(training_set, test_set, model, output_dir):
 
     np.save(join(output_dir, 'names'), test_set.outcomes.columns.values)
 
+    start_time = time.time()
     model.fit(training_set.covariates.values,
               training_set.outcomes.values.astype(int))
+    end_time = time.time()
+    time_taken = end_time - start_time
+
+    with open(join(output_dir, 'runtime.txt'), 'w') as f:
+        f.write(str(time_taken))
 
     compute_and_save_results_for_evaluation(test_set, model, output_dir)
 
 
 def get_mixed_stan(n_dims, n_outcomes):
+
+    from sdm_ml.hierarchical.independent_hierarchical_model import \
+        IndependentHierarchicalModel
 
     return IndependentHierarchicalModel()
 
@@ -68,6 +77,24 @@ def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
 
     model = CrossValidatedMultiOutputGP(variances_to_try, cv_save_dir,
                                         n_inducing=n_inducing, maxiter=maxiter)
+
+    return model
+
+
+def get_hierarchical_mogp(n_dims, n_outcomes, n_inducing, n_latent, kernel):
+
+    from sdm_ml.gp.hierarchical_mogp import HierarchicalMOGP
+
+    model = HierarchicalMOGP(n_inducing, n_latent, kernel)
+
+    return model
+
+
+def get_new_sogp(n_dims, n_outcomes, n_inducing, kernel):
+
+    from sdm_ml.gp.sogp import SOGP
+
+    model = SOGP(n_inducing, kernel)
 
     return model
 
@@ -149,6 +176,14 @@ def get_log_reg(n_dims, n_outcomes):
     return model
 
 
+def get_log_reg_unregularised(n_dims, n_outcomes):
+
+    model = ScikitModel(partial(LogisticRegression, penalty='none',
+                                solver='newton-cg'))
+
+    return model
+
+
 def get_base_rate_model(n_dims, n_outcomes):
 
     return ScikitModel(BaseRateModel)
@@ -202,30 +237,27 @@ if __name__ == '__main__':
 
     datasets = {}
     datasets = NorbergDataset.fetch_all_norberg_sets()
-    datasets['bbs'] = BBSDataset.init_using_env_variable()
     datasets = {x: y for x, y in datasets.items() if '3' not in x}
+    datasets['bbs'] = BBSDataset.init_using_env_variable()
 
     target_dir = join(output_base_dir,
                       create_path_with_variables(test_run=test_run))
 
     models = {
         # 'brt': get_brt,
-        # 'mogp_strict_W_bias_flex': partial(
-        #     get_multi_output_gp, n_inducing=100, n_kernels=10, add_bias=True,
-        #     test_run=test_run, use_mean_function=False, w_prior=0.1,
-        #     whiten=True, bias_var=4),
         # 'sogp': partial(get_single_output_gp, test_run=test_run,
         #                 add_bias=True, add_priors=True,
         #                 n_inducing=100),
         # 'rf_cv': get_random_forest_cv,
-        # 'log_reg_cv': get_log_reg,
-        # 'mixed_independent_joint_lik': get_mixed_stan
-        # 'mogp_cv': partial(get_cross_validated_mogp, test_run=test_run,
-        #                    variances_to_try=np.linspace(0.1, 1., 10)**2)
-        # 'base_rate': get_base_rate_model
-        'mogp_cv_one_se': partial(get_cross_validated_mogp, test_run=test_run,
-                                  variances_to_try=np.linspace(0.005, 0.4, 10),
-                                  cv_save_dir=join(target_dir, 'cv_results'))
+        # 'log_reg_unreg': get_log_reg_unregularised,
+        # 'mixed_independent_joint_lik': get_mixed_stan,
+        # 'mogp_cv_one_se': partial(get_cross_validated_mogp, test_run=test_run,
+        #                           variances_to_try=np.linspace(0.005, 0.4, 10),
+        #                           cv_save_dir=join(target_dir, 'cv_results'))
+        #'hierarchical_mogp_24': partial(get_hierarchical_mogp,
+        #                                n_inducing=100,
+        #                                n_latent=24, kernel='matern_3/2'),
+        'sogp_new': partial(get_new_sogp, n_inducing=100, kernel='matern_3/2')
     }
 
     for cur_dataset_name, cur_dataset in datasets.items():
@@ -246,7 +278,7 @@ if __name__ == '__main__':
             n_sites = training_set.covariates.shape[0]
 
             sites_to_pick = 100
-            species_to_pick = 10
+            species_to_pick = 2
 
             picked_sites, picked_species = pick_random_species_and_sites(
                 sites_to_pick, species_to_pick, n_sites, n_outcomes)
@@ -266,11 +298,11 @@ if __name__ == '__main__':
 
             cur_model = cur_model_fn(n_dims, n_outcomes)
 
-            try:
-                evaluate_model(training_set, test_set, cur_model, cur_subdir)
-            except ValueError as e:
-                print(f'Failed to fit {cur_model_name}. Error was: {e}')
-                target_file = join(cur_subdir, 'error.txt')
-                with open(target_file, 'w') as f:
-                    f.write(f'Failed to fit model. Error was: {e}')
-                continue
+            # try:
+            evaluate_model(training_set, test_set, cur_model, cur_subdir)
+            # except ValueError as e:
+            #     print(f'Failed to fit {cur_model_name}. Error was: {e}')
+            #     target_file = join(cur_subdir, 'error.txt')
+            #     with open(target_file, 'w') as f:
+            #         f.write(f'Failed to fit model. Error was: {e}')
+            #     continue

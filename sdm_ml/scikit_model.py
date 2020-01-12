@@ -76,8 +76,6 @@ class ScikitModel(PresenceAbsenceModel):
         return result
 
     def save_model(self, target_folder):
-        # TODO: Might be better to save these individually rather than all
-        # at once?
 
         os.makedirs(target_folder, exist_ok=True)
 
@@ -86,7 +84,6 @@ class ScikitModel(PresenceAbsenceModel):
             os.path.join(target_folder, 'models.pkl'), 'bw'))
 
     def calculate_log_likelihood(self, X, y):
-        # TODO: Make sure this is correct!
 
         # Predict marginal probabilities
         predictions = self.predict_log_marginal_probabilities(X)

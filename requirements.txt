@@ -1,4 +1,6 @@
 tqdm
-tensorflow==1.14
+tensorflow==1.15.0
 scikit-learn
 pandas
+rpy2
+pystan

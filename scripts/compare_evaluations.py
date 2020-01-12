@@ -42,7 +42,7 @@ if __name__ == '__main__':
     target_dir = './experiments/experiment_summaries/'
     os.makedirs(target_dir, exist_ok=True)
 
-    reference_model = 'log_reg_cv'
+    reference_model = 'log_reg_unreg'
 
     # Get all the joint likelihoods
     joint_liks = [load_all_dataset_joint_likelihoods(x) for x in base_dirs]
@@ -57,7 +57,14 @@ if __name__ == '__main__':
     metrics = {'log_lik': mle.neg_log_loss_with_labels,
                'auc': mle.auc_with_nan}
 
-    n_bootstrap = 100
+    # Only run the models we need
+    model_subset = [
+        'mixed_independent_joint_lik', 'brt', 'log_reg_unreg',
+        'mogp_cv_one_se', 'sogp_bias', 'rf_cv', 'hierarchical_mogp_10',
+        'hmsc'
+    ]
+
+    n_bootstrap = 10
 
     all_diffs = list()
     all_baselines = list()
@@ -70,6 +77,9 @@ if __name__ == '__main__':
 
             cur_model_results = {x: y for x, y in cur_model_results.items()
                                  if y is not None}
+
+            cur_model_results = {x: y for x, y in cur_model_results.items()
+                                 if x in model_subset}
 
             # Add joint likelihood summary
             assert len(joint_liks) == 1, \
