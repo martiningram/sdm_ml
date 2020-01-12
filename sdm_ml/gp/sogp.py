@@ -1,6 +1,7 @@
 import os
 import pickle
 import numpy as np
+from tqdm import tqdm
 from svgp.tf.sogp_classifier import fit, predict_probs
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
@@ -16,7 +17,7 @@ class SOGP(PresenceAbsenceModel):
         self.n_draws_predict = n_draws_predict
 
         self.scaler = None
-        self.fit_result = None
+        self.fit_results = None
 
     @classmethod
     def from_fit_result(cls, fit_result, scaler):
@@ -33,19 +34,22 @@ class SOGP(PresenceAbsenceModel):
         # TODO: Consider allowing the priors to change
 
         self.scaler = StandardScaler()
-
         X = self.scaler.fit_transform(X)
 
-        self.fit_result = fit(
-            X, y, self.n_inducing, random_seed=self.random_seed,
-            kernel=self.kernel)
+        self.fit_results = [
+            fit(X, cur_y, self.n_inducing, random_seed=self.seed,
+                kernel=self.kernel)
+            for cur_y in tqdm(y.T)
+        ]
 
     def predict_log_marginal_probabilities(self, X):
 
         X = self.scaler.transform(X)
 
-        pred_probs = predict_probs(self.fit_result, X,
-                                   n_draws=self.n_draws_predict)
+        pred_probs = np.stack([
+            predict_probs(cur_fit_result, X, n_draws=self.n_draws_predict)
+            for cur_fit_result in self.fit_results
+        ], axis=1)
 
         return np.stack([np.log(1 - pred_probs), np.log(pred_probs)], axis=-1)
 
@@ -61,9 +65,10 @@ class SOGP(PresenceAbsenceModel):
 
         os.makedirs(target_folder, exist_ok=True)
 
-        # Save the results file
-        np.savez(os.path.join(target_folder, 'results_file'),
-                 **self.fit_result._asdict())
+        # Save the results files
+        for i, cur_results in enumerate(self.fit_results):
+            np.savez(os.path.join(target_folder, f'results_file_{i}'),
+                     **cur_results._asdict())
 
         # Save the scaler
         with open(os.path.join(target_folder, 'scaler.pkl'), 'wb') as f:

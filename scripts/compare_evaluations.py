@@ -60,10 +60,11 @@ if __name__ == '__main__':
     # Only run the models we need
     model_subset = [
         'mixed_independent_joint_lik', 'brt', 'log_reg_unreg',
-        'mogp_cv_one_se', 'sogp_bias', 'rf_cv'
+        'mogp_cv_one_se', 'sogp_bias', 'rf_cv', 'hierarchical_mogp_10',
+        'hmsc'
     ]
 
-    n_bootstrap = 100
+    n_bootstrap = 10
 
     all_diffs = list()
     all_baselines = list()
