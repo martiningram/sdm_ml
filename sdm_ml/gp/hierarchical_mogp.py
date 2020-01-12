@@ -41,7 +41,7 @@ class HierarchicalMOGP(PresenceAbsenceModel):
         X = self.scaler.fit_transform(X)
 
         self.fit_result = fit(
-            X, y, self.n_inducing, self.n_latent, random_seed=self.random_seed,
+            X, y, self.n_inducing, self.n_latent, random_seed=self.seed,
             kernel=self.kernel)
 
     def predict_log_marginal_probabilities(self, X):
@@ -51,7 +51,7 @@ class HierarchicalMOGP(PresenceAbsenceModel):
         pred_probs = predict_probs(self.fit_result, X,
                                    n_draws=self.n_draws_predict)
 
-        return np.log(pred_probs)
+        return np.stack([np.log(1 - pred_probs), np.log(pred_probs)], axis=-1)
 
     def calculate_log_likelihood(self, X, y):
 
