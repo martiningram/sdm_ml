@@ -48,8 +48,7 @@ class HierarchicalMOGP(PresenceAbsenceModel):
 
         X = self.scaler.transform(X)
 
-        pred_probs = predict_probs(self.fit_result, X,
-                                   n_draws=self.n_draws_predict)
+        pred_probs = predict_probs(self.fit_result, X)
 
         return np.stack([np.log(1 - pred_probs), np.log(pred_probs)], axis=-1)
 
