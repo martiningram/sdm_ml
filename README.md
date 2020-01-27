@@ -1,7 +1,8 @@
 # Species distribution modelling using machine learning (SDM_ML)
 
 This repository contains code to fit and evaluate (multi-) species distribution
-models in python. It accompanies the manuscript "Multi-Output Gaussian Processes for Species Distribution Modelling", which is currently under review.
+models in python. It accompanies the manuscript "Multi-Output Gaussian Processes
+for Species Distribution Modelling", which is currently under review.
 
 ## Requirements & setup
 
