@@ -59,8 +59,8 @@ if __name__ == '__main__':
 
     # Only run the models we need
     model_subset = [
-        'brt', 'log_reg_unreg', 'mogp_cv_one_se', 'sogp_bias', 'rf_cv',
-        'hierarchical_mogp_10', 'hmsc', 'sogp_new'
+        'brt', 'log_reg_unreg', 'rf_cv', 'hierarchical_mogp_10_gamma32',
+        'hmsc', 'sogp_new'
     ]
 
     n_bootstrap = 100

@@ -22,7 +22,7 @@ target_dir = './experiments/conditional_plots/'
 makedirs(target_dir, exist_ok=True)
 
 mogp_file = ('./experiments/experiment_summaries/to_summarise/bbs/'
-             'hierarchical_mogp_10_timings/trained_model/results_file.npz')
+             'hierarchical_mogp_10_gamma32/trained_model/results_file.npz')
 
 sogp_dir = ('./experiments/experiment_summaries/to_summarise/bbs/'
             'sogp_new/trained_model/')
