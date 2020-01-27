@@ -7,7 +7,6 @@ from functools import partial
 from sdm_ml.dataset import BBSDataset, SpeciesData
 from sdm_ml.norberg_dataset import NorbergDataset
 from sdm_ml.scikit_model import ScikitModel
-from sdm_ml.brt.dismo_brt import DismoBRT
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from ml_tools.utils import create_path_with_variables
 from sdm_ml.base_rate_model import BaseRateModel
@@ -57,6 +56,8 @@ def get_new_sogp(n_dims, n_outcomes, n_inducing, kernel):
 
 
 def get_brt(n_dims, n_outcomes):
+
+    from sdm_ml.brt.dismo_brt import DismoBRT
 
     return ScikitModel(DismoBRT)
 
@@ -176,11 +177,10 @@ if __name__ == '__main__':
         # 'brt': get_brt,
         # 'rf_cv': get_random_forest_cv,
         # 'log_reg_unreg': get_log_reg_unregularised,
-        # 'mixed_independent_joint_lik': get_mixed_stan,
-        # 'hierarchical_mogp_24': partial(get_hierarchical_mogp,
-        #                                n_inducing=100,
-        #                                n_latent=24, kernel='matern_3/2'),
-        'sogp_new': partial(get_new_sogp, n_inducing=100, kernel='matern_3/2')
+        'hierarchical_mogp_10': partial(
+            get_hierarchical_mogp, n_inducing=100, n_latent=10,
+            kernel='matern_3/2'),
+        'sogp': partial(get_new_sogp, n_inducing=100, kernel='matern_3/2')
     }
 
     for cur_dataset_name, cur_dataset in datasets.items():

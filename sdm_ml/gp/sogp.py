@@ -9,12 +9,11 @@ from sklearn.preprocessing import StandardScaler
 
 class SOGP(PresenceAbsenceModel):
 
-    def __init__(self, n_inducing, kernel, seed=2, n_draws_predict=1000):
+    def __init__(self, n_inducing, kernel, seed=2):
 
         self.n_inducing = n_inducing
         self.kernel = kernel
         self.seed = seed
-        self.n_draws_predict = n_draws_predict
 
         self.scaler = None
         self.fit_results = None
@@ -47,7 +46,7 @@ class SOGP(PresenceAbsenceModel):
         X = self.scaler.transform(X)
 
         pred_probs = np.stack([
-            predict_probs(cur_fit_result, X, n_draws=self.n_draws_predict)
+            predict_probs(cur_fit_result, X)
             for cur_fit_result in self.fit_results
         ], axis=1)
 
