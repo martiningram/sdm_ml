@@ -104,8 +104,6 @@ pred_funs_2['mogp'] = lambda x: predict_probs_mogp(mogp_results, x, log=True)[
 
 # Now that we have all the prediction functions in place, make the partial
 # plots
-# TODO: Predicting the probs for the MOGP is slow. Maybe reduce the number of
-# draws or points in the contour plot?
 for cur_model_name, cur_pred_fun in pred_funs_1.items():
 
     print(f'Predicting species 1 for {cur_model_name}')
