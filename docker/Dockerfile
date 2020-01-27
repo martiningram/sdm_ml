@@ -1,5 +1,12 @@
 FROM continuumio/miniconda3
 
+# HOW TO
+# To use this Dockerfile, please clone the sdm_ml repository, the ml_tools
+# repository, and the svgp repository.
+# Put them into the same folder, and put the Dockerfile there, too. The folder
+# should contain: Dockerfile, sdm_ml, ml_tools, svgp.
+# Then run docker build as you would normally.
+
 # Copy the local repos -- could clone these eventually
 COPY sdm_ml /opt/sdm_ml
 COPY ml_tools /opt/ml_tools
