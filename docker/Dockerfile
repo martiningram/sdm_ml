@@ -1,6 +1,6 @@
 FROM continuumio/miniconda3
 
-# Copy the local repos -- could clone these eventually
+# These repositories have to be cloned and in these directories -- see README
 COPY sdm_ml /opt/sdm_ml
 COPY ml_tools /opt/ml_tools
 COPY svgp /opt/svgp
