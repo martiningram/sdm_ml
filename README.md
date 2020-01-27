@@ -58,7 +58,7 @@ print(f'The log likelihood at each site is: {train_lik}')
 model.save_model('./saved_logistic_regression')
 ```
 
-### Fitting a MOGP with fixed W variance
+### Fitting a multi-output GP (MOGP)
 
 Fitting the MOGP is very similar, see below.
 
@@ -71,18 +71,23 @@ n_latent = 2
 n_inducing = 10
 kernel = 'matern_3/2'
 
-# Now we can build the model using this kernel
+# Build the model
 model = HierarchicalMOGP(n_inducing=n_inducing, n_latent=n_latent,
                          kernel=kernel)
 
 # The rest is the same as the logistic regression example:
 n_data = 20
+n_cov = 4
+n_outputs = 5
+
+np.random.seed(2)
 
 # Make up some fake data
 X = np.random.randn(n_data, n_cov)
 y = np.random.randint(0, 2, size=(n_data, n_outputs))
 
-# We can now fit the model like so:
+# We can now fit the model like so (please allow a few minutes for this,
+# especially on CPU):
 model.fit(X, y)
 
 # We can predict the training set like so:
