@@ -105,7 +105,8 @@ model.save_model('./saved_mogp')
 
 ### Reproducing the paper experiments
 
-Code to run the experiments in the paper can be found in the script:
+Code to run the experiments in the paper (with the exception of HMSC; see below)
+can be found in the script:
 
 `scripts/evaluate_model.py`
 
@@ -131,3 +132,16 @@ time.
 
 Please note also that the SOGP and particularly the MOGP models benefit strongly
 from GPU acceleration and will run much more quickly if one is available.
+
+#### Running HMSC
+
+The only model not implemented in our common evaluation framework is HMSC. Code
+to run HMSC can be found in the subfolder `./R/hmsc/`.
+
+To run HMSC, please do the following:
+
+* Run `./R/hmsc/fetch_datasets.py` to obtain the datasets (see the previous
+  section for how to allow sdm_ml to find them).
+* Take a look at the `./R/hmsc/run.sh` shell script to see how to run HMSC. The
+  parameters for the number of samples etc. are given in our paper.
+* Once run, convergence can be checked using `./R/hmsc/compute_convergence.R`.
