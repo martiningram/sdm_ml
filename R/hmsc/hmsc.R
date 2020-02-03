@@ -68,7 +68,6 @@ Y <- Y[chosen, chosen_species]
 # We also need to subset the test species!
 Y_test <- Y_test[, chosen_species]
 
-# Try HMSC
 studyDesign = data.frame(sample =sprintf('sample_%.3d',1:nrow(X)))
 
 rL = HmscRandomLevel(units = studyDesign$sample)
@@ -132,8 +131,6 @@ clip_between <- function(values, lower_bound=10^(-15), upper_bound=1 - 10^(-15))
 }
 
 library(matrixStats)
-# Try another way; maybe this was wrong.
-# First, get all the predictions of a single site.
 compute_site_likelihood <- function(cur_site_preds, site_truth) {
   
   clipped_preds <- clip_between(cur_site_preds)
