@@ -1,6 +1,5 @@
 import os
 import time
-import uuid
 import numpy as np
 from os.path import join
 from functools import partial
@@ -8,7 +7,6 @@ from functools import partial
 from sdm_ml.dataset import BBSDataset, SpeciesData
 from sdm_ml.norberg_dataset import NorbergDataset
 from sdm_ml.scikit_model import ScikitModel
-from sdm_ml.brt.dismo_brt import DismoBRT
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from ml_tools.utils import create_path_with_variables
 from sdm_ml.base_rate_model import BaseRateModel
@@ -39,48 +37,6 @@ def get_mixed_stan(n_dims, n_outcomes):
     return IndependentHierarchicalModel()
 
 
-def get_single_output_gp(n_dims, n_outcomes, test_run, add_bias, add_priors,
-                         n_inducing):
-
-    import gpflow
-    gpflow.reset_default_graph_and_session()
-
-    from sdm_ml.gp.single_output_gp import SingleOutputGP
-
-    # Fetch single output GP
-    default_kernel_fun = partial(
-        SingleOutputGP.build_default_kernel, n_dims=n_dims, add_bias=add_bias,
-        add_priors=add_priors)
-
-    so_gp = SingleOutputGP(
-        n_inducing=n_inducing, kernel_function=default_kernel_fun,
-        verbose_fit=False, maxiter=10 if test_run else int(1E6))
-
-    return so_gp
-
-
-def get_cross_validated_mogp(n_dims, n_outcomes, test_run, variances_to_try,
-                             cv_save_dir=None):
-
-    import gpflow
-    gpflow.reset_default_graph_and_session()
-
-    from sdm_ml.gp.cross_validated_multi_output_gp import \
-        CrossValidatedMultiOutputGP
-
-    if cv_save_dir is None:
-
-        cv_save_dir = join('/tmp/', uuid.uuid4().hex)
-
-    n_inducing = 10 if test_run else 100
-    maxiter = 10 if test_run else int(1E6)
-
-    model = CrossValidatedMultiOutputGP(variances_to_try, cv_save_dir,
-                                        n_inducing=n_inducing, maxiter=maxiter)
-
-    return model
-
-
 def get_hierarchical_mogp(n_dims, n_outcomes, n_inducing, n_latent, kernel):
 
     from sdm_ml.gp.hierarchical_mogp import HierarchicalMOGP
@@ -100,6 +56,8 @@ def get_new_sogp(n_dims, n_outcomes, n_inducing, kernel):
 
 
 def get_brt(n_dims, n_outcomes):
+
+    from sdm_ml.brt.dismo_brt import DismoBRT
 
     return ScikitModel(DismoBRT)
 
@@ -139,34 +97,6 @@ def discard_rare_species(training_set, test_set, min_presences=5):
     )
 
     return new_training_set, new_test_set
-
-
-def get_multi_output_gp(n_dims, n_outcomes, n_kernels, n_inducing, add_bias,
-                        w_prior, test_run, use_mean_function, bias_var,
-                        whiten=False):
-
-    import gpflow
-    gpflow.reset_default_graph_and_session()
-
-    from sdm_ml.gp.multi_output_gp import MultiOutputGP
-
-    if use_mean_function:
-        mean_fun = partial(MultiOutputGP.build_default_mean_function,
-                           n_outputs=n_outcomes)
-    else:
-        mean_fun = lambda: None # NOQA
-
-    # Fetch multi output GP
-    mogp_kernel = MultiOutputGP.build_default_kernel(
-        n_dims=n_dims, n_kernels=n_kernels, n_outputs=n_outcomes,
-        add_bias=add_bias, w_prior=w_prior, bias_var=bias_var)
-
-    mogp = MultiOutputGP(n_inducing=n_inducing, n_latent=n_kernels,
-                         kernel=mogp_kernel, maxiter=10 if test_run else
-                         int(1E6), mean_function=mean_fun, whiten=whiten,
-                         n_draws_predict=int(1E2) if test_run else int(1E4))
-
-    return mogp
 
 
 def get_log_reg(n_dims, n_outcomes):
@@ -245,19 +175,12 @@ if __name__ == '__main__':
 
     models = {
         # 'brt': get_brt,
-        # 'sogp': partial(get_single_output_gp, test_run=test_run,
-        #                 add_bias=True, add_priors=True,
-        #                 n_inducing=100),
         # 'rf_cv': get_random_forest_cv,
         # 'log_reg_unreg': get_log_reg_unregularised,
-        # 'mixed_independent_joint_lik': get_mixed_stan,
-        # 'mogp_cv_one_se': partial(get_cross_validated_mogp, test_run=test_run,
-        #                           variances_to_try=np.linspace(0.005, 0.4, 10),
-        #                           cv_save_dir=join(target_dir, 'cv_results'))
-        #'hierarchical_mogp_24': partial(get_hierarchical_mogp,
-        #                                n_inducing=100,
-        #                                n_latent=24, kernel='matern_3/2'),
-        'sogp_new': partial(get_new_sogp, n_inducing=100, kernel='matern_3/2')
+        'hierarchical_mogp_10': partial(
+            get_hierarchical_mogp, n_inducing=100, n_latent=10,
+            kernel='matern_3/2'),
+        'sogp': partial(get_new_sogp, n_inducing=100, kernel='matern_3/2')
     }
 
     for cur_dataset_name, cur_dataset in datasets.items():
