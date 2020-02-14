@@ -2,7 +2,8 @@ import os
 import pickle
 import numpy as np
 from tqdm import tqdm
-from svgp.tf.mogp_classifier import fit, predict_probs, predict_f_samples
+from svgp.tf.models.mogp_classifier import (
+    fit, predict_probs, predict_f_samples)
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
 from ml_tools.normals import calculate_log_joint_bernoulli_likelihood

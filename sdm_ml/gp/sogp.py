@@ -2,7 +2,7 @@ import os
 import pickle
 import numpy as np
 from tqdm import tqdm
-from svgp.tf.sogp_classifier import fit, predict_probs
+from svgp.tf.models.sogp_classifier import fit, predict_probs
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
 
