@@ -1,0 +1,90 @@
+---
+title: "Prepare data for choosing L"
+author: "Martin Ingram"
+date: "13/03/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load dataset
+
+```{r}
+bbs_path <- '../../../dataset/csv_bird_data/'
+
+covariates <- paste0(bbs_path, 'x.csv')
+is_train <- paste0(bbs_path, 'in.train.csv')
+outcomes <- paste0(bbs_path, 'route.presence.absence.csv')
+lat_lon <- paste0(bbs_path, 'latlon.csv')
+
+covs <- read.csv(covariates, row.names = 1)
+is_train <- read.csv(is_train, row.names = 1)$x
+pa <- read.csv(outcomes, row.names = 1, check.names = FALSE)
+lat_lon <-read.csv(lat_lon, row.names = 1)[is_train, ]
+
+head(lat_lon)
+```
+```{r}
+train_covs <- covs[is_train, ]
+```
+
+```{r}
+dim(train_covs)
+```
+```{r}
+head(lat_lon)
+```
+
+```{r}
+library(blockCV)
+library(sf)
+```
+
+```{r}
+lat_lon_sf <- st_as_sf(lat_lon, coords = c("Longitude", "Latitude"), crs = 4326)
+
+# proj_sf <- st_transform(lat_lon_sf, crs = 102008)
+```
+
+```{r}
+# head(proj_sf)
+```
+
+```{r}
+# plot(proj_sf)
+```
+
+```{r}
+sb <- spatialBlock(speciesData = lat_lon_sf, # sf or SpatialPoints
+                   theRange = 800000, # size of the blocks
+                   k = 4, # the number of folds
+                   selection = "checkerboard",
+                   iteration = 100, # find evenly dispersed folds
+                   biomod2Format = TRUE)
+```
+
+```{r}
+train <- sb[[1]][[1]][[1]]
+test <- sb[[1]][[1]][[2]]
+```
+
+```{r}
+length(train)
+```
+
+```{r}
+length(test)
+```
+
+```{r}
+all_ids <- seq(1, length(test) + length(train))
+is_test <- all_ids %in% test
+
+plot(lat_lon$Longitude[!is_test], lat_lon$Latitude[!is_test], col='red')
+points(lat_lon$Longitude[is_test], lat_lon$Latitude[is_test], col='green')
+
+write.csv(is_test, 'is_test.csv')
+```
+
