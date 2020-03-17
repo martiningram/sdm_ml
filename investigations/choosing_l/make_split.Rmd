@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load dataset
 
 ```{r}
-bbs_path <- '../../../dataset/csv_bird_data/'
+bbs_path <- '/home/martiningram/data/bbs/csv_bird_data/'
 
 covariates <- paste0(bbs_path, 'x.csv')
 is_train <- paste0(bbs_path, 'in.train.csv')
