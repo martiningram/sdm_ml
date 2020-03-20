@@ -1,5 +1,5 @@
-data_dir='./data'
-result_dir='./results'
+data_dir=./data
+result_dir=./grid_search_fixed_variance
 
 min_observations=5
 
@@ -7,6 +7,18 @@ mogp_n_inducing=20
 mogp_n_latent=4
 mogp_seed=2
 mogp_target_dir=$(result_dir)/mogp_n_inducing_$(mogp_n_inducing)_n_latent_$(mogp_n_latent)_seed_$(mogp_seed)
+
+results_files:=$(wildcard $(result_dir)/mogp_n_inducing_*/results.npz)
+eval_files:=$(patsubst %results.npz,%summary_metrics.csv,$(results_files))
+
+evaluation: $(eval_files)
+
+$(eval_files): %/summary_metrics.csv: %/results.npz evaluate_fits.py
+	python evaluate_fits.py \
+		$(dir $@) \
+		$(data_dir)/test_covariates.csv \
+		$(data_dir)/test_outcomes.csv \
+		$(dir $@)
 
 $(mogp_target_dir)/results.npz: fit_mogp.py $(data_dir)/train_covariates.csv
 	python fit_mogp.py \
