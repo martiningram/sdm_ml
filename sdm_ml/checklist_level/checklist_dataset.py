@@ -90,6 +90,12 @@ def get_arrays_for_fitting(
     encoder = LabelEncoder()
     numeric_cell_ids = encoder.fit_transform(rel_cell_ids)
 
+    # Ensure things are sorted
+    assert all(
+        numeric_cell_ids[i] <= numeric_cell_ids[i + 1]
+        for i in range(len(numeric_cell_ids) - 1)
+    ), "Numeric cell ids are not sorted."
+
     if drop_correlated_covariates:
         to_keep = remove_correlated_variables(rel_covariates)
         rel_covariates = rel_covariates[to_keep]
@@ -119,6 +125,10 @@ def load_ebird_dataset(
     species_files = glob(join(ebird_species_dir, "*.csv"))
     species_names = np.array([base_name_from_path(x) for x in species_files])
     covariates = pd.read_csv(covariates_file, index_col=0)
+
+    # NOTE: This is pretty crucial to ensure that the numerical labels later
+    # match up.
+    covariates = covariates.sort_values("cell")
 
     assert drop_nan_cells, "Currently expects NaN cells to be dropped"
 
