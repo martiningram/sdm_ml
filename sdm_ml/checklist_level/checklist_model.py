@@ -10,7 +10,7 @@ class ChecklistModel(ABC):
         self,
         X_env_cell: np.ndarray,
         X_checklist: np.ndarray,
-        y_checklist: Callable[str, np.ndarray],
+        y_checklist: Callable[[str], np.ndarray],
         checklist_cell_ids: np.ndarray,
         species_names: np.ndarray,
     ) -> None:

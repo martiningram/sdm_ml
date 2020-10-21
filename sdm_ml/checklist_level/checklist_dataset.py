@@ -133,6 +133,7 @@ def load_ebird_dataset(
     assert drop_nan_cells, "Currently expects NaN cells to be dropped"
 
     nan_cells = covariates["cell"][covariates.isnull().any(axis=1)]
+    covariates = covariates.dropna()
 
     species_file_lookup = {x: y for x, y in zip(species_names, species_files)}
 
