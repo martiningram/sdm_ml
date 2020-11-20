@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import Callable
+import pandas as pd
 
 
 # TODO: Should I allow for only a subset of checklists to have species ys?
@@ -8,10 +9,10 @@ class ChecklistModel(ABC):
     @abstractmethod
     def fit(
         self,
-        X_env_cell: np.ndarray,
-        X_checklist: np.ndarray,
+        X_env_cell: pd.DataFrame,
+        X_checklist: Callable[[str], pd.DataFrame],
         y_checklist: Callable[[str], np.ndarray],
-        checklist_cell_ids: np.ndarray,
+        checklist_cell_ids: Callable[[str], np.ndarray],
         species_names: np.ndarray,
     ) -> None:
         """Fits a ChecklistModel.

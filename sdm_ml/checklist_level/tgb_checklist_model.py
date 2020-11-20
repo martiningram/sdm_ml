@@ -1,6 +1,7 @@
 from .checklist_model import ChecklistModel
 import numpy as np
 from typing import Callable
+import pandas as pd
 
 
 class TGBChecklistModel(ChecklistModel):
@@ -11,7 +12,7 @@ class TGBChecklistModel(ChecklistModel):
     def fit(
         self,
         X_env_cell: np.ndarray,
-        X_checklist: Callable[[str], np.ndarray],
+        X_checklist: Callable[[str], pd.DataFrame],
         y_checklist: Callable[[str], np.ndarray],
         checklist_cell_ids: Callable[[str], np.ndarray],
         species_names: np.ndarray,

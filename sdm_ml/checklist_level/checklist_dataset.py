@@ -40,6 +40,7 @@ class CellLevelData(NamedTuple):
 
     cell_id: np.ndarray
     cell_covariates: pd.DataFrame
+    cell_lat_lon: pd.DataFrame = None
 
 
 class ChecklistDataset(NamedTuple):
@@ -150,10 +151,15 @@ def load_ebird_dataset(
             species_name, was_observed, checklist_id, observation_count
         )
 
-    def get_checklist_data(sampling_data):
+    def get_checklist_data(sampling_data, drop_bbs=True):
 
         if drop_nan_cells:
             sampling_data = sampling_data[~sampling_data["cell_id"].isin(nan_cells)]
+
+        if drop_bbs:
+            sampling_data = sampling_data[
+                ~sampling_data["locality"].str.contains("BBS")
+            ]
 
         # Put together the checklist-level data
         checklist_id = sampling_data["checklist_id"].values
@@ -196,12 +202,15 @@ def load_ebird_dataset(
     train_sampling_data = sampling_data[sampling_data["fold_id"].isin(train_folds)]
     test_sampling_data = sampling_data[sampling_data["fold_id"].isin(test_folds)]
 
-    train_checklist_data = get_checklist_data(train_sampling_data)
-    test_checklist_data = get_checklist_data(test_sampling_data)
+    train_checklist_data = get_checklist_data(train_sampling_data, drop_bbs=True)
+    test_checklist_data = get_checklist_data(test_sampling_data, drop_bbs=False)
 
     cell_data = CellLevelData(
         cell_id=covariates["cell"].values,
-        cell_covariates=covariates[[x for x in covariates.columns if x != "cell"]],
+        cell_covariates=covariates[
+            [x for x in covariates.columns if x not in ["cell", "x", "y"]]
+        ],
+        cell_lat_lon=covariates[["x", "y"]],
     )
 
     return ChecklistDataset(

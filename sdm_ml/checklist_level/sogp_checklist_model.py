@@ -9,20 +9,36 @@ from svgp.jax.helpers.sogp import (
     ard_plus_bias_kernel_currier,
     gamma_default_lscale_prior_fn,
     constrain_positive,
+    get_kernel_fun,
 )
-from svgp.jax.helpers.svgp_spec import project_to_x
+from svgp.jax.helpers.svgp_spec import project_to_x, SVGPSpec
 from ml_tools.normals import logistic_normal_integral_approx
 import pickle
 from typing import Callable
 import os
+from collections import defaultdict
+from glob import glob
+from ml_tools.paths import base_name_from_path
+from ml_tools.utils import load_pickle_safely
 
 
 class SOGPChecklistModel(ChecklistModel):
-    def __init__(self):
+    def __init__(self, duration_slope_lookup=None, obs_intercept_lookup=None):
 
         self.scaler = None
         self.fit_results = None
         self.species_names = None
+
+        self.duration_slope_lookup = (
+            defaultdict(lambda: 0.42)
+            if duration_slope_lookup is None
+            else duration_slope_lookup
+        )
+        self.obs_intercept_lookup = (
+            defaultdict(lambda: -3.1)
+            if obs_intercept_lookup is None
+            else obs_intercept_lookup
+        )
 
     def fit(
         self,
@@ -37,10 +53,15 @@ class SOGPChecklistModel(ChecklistModel):
         X_env_cell = self.scaler.fit_transform(X_env_cell)
         n_c_env = X_env_cell.shape[1]
 
-        def likelihood_fun(f, theta, m, log_duration, checklist_cell_ids, n_cells):
+        def likelihood_fun(
+            f, theta, m, log_duration, checklist_cell_ids, n_cells, species_name
+        ):
 
             env_logit = f
-            obs_logit = log_duration * 0.42 - 3.1
+            obs_logit = (
+                log_duration * self.duration_slope_lookup[species_name]
+                + self.obs_intercept_lookup[species_name]
+            )
 
             likelihood = compute_checklist_likelihood(
                 env_logit, obs_logit, m, checklist_cell_ids, n_cells
@@ -68,7 +89,7 @@ class SOGPChecklistModel(ChecklistModel):
             }
 
             cur_lik_fun = lambda f, theta: likelihood_fun(
-                f, theta, cur_m, cur_X_checklist, cur_cell_ids, n_cells
+                f, theta, cur_m, cur_X_checklist, cur_cell_ids, n_cells, cur_species
             )
 
             final_spec, final_theta = fit(
@@ -129,3 +150,49 @@ class SOGPChecklistModel(ChecklistModel):
         # Save the scaler
         with open(os.path.join(target_folder, "scaler.pkl"), "wb") as f:
             pickle.dump(self.scaler, f)
+
+    @classmethod
+    def restore_model(cls, folder: str):
+
+        all_results_files = glob(os.path.join(folder, "results_file_*.npz"))
+
+        # TODO: This is admittedly a little bit obscure. The key just gets the
+        # number, so that they are sorted.
+        all_results_files = sorted(
+            all_results_files, key=lambda x: int(base_name_from_path(x).split("_")[-1])
+        )
+
+        scaler = load_pickle_safely(os.path.join(folder, "scaler.pkl"))
+        species_names = list()
+        fit_results = list()
+
+        for cur_results_file in all_results_files:
+
+            with open(cur_results_file, "rb") as f:
+
+                cur_theta = dict(np.load(f))
+                species_name = cur_theta["species_name"]
+
+                species_names.append(species_name)
+
+                cur_kern_fn = get_kernel_fun(
+                    ard_plus_bias_kernel_currier, cur_theta, constrain_positive
+                )
+
+                cur_spec = SVGPSpec(
+                    m=cur_theta["mu"],
+                    L_elts=cur_theta["L_elts"],
+                    Z=cur_theta["Z"],
+                    kern_fn=cur_kern_fn,
+                )
+
+                fit_results.append([cur_spec, cur_theta])
+
+        # TODO: Maybe save the lookups
+        model = cls()
+
+        model.scaler = scaler
+        model.fit_results = fit_results
+        model.species_names = species_names
+
+        return model
