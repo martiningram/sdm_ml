@@ -126,6 +126,8 @@ class EBirdJointChecklistModel(ChecklistModel):
         species_names: np.ndarray,
     ):
 
+        self.species_names = species_names
+
         X_checklist, y_full, X_env, cell_ids = self.assemble_dataset(
             X_env_cell, X_checklist, y_checklist, checklist_cell_ids, species_names
         )
@@ -179,6 +181,7 @@ class EBirdJointChecklistModel(ChecklistModel):
             "fit_result": get_pickleable_subset(self.fit_result),
             "obs_cov_names": self.obs_cov_names,
             "env_cov_names": self.env_cov_names,
+            "species_names": self.species_names,
         }
 
         save_pickle_safely(to_pickle, join(target_folder, "fit_results.pkl"))

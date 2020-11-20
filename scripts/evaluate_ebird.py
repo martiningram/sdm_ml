@@ -49,7 +49,7 @@ species_names = sorted(
     list(set(ebird_dataset.species_names) & (set(bbs_2019["train"].outcomes.columns)))
 )
 
-species_names = species_names[:16]
+species_names = species_names[:4]
 
 model.fit(
     X_env_cell=X_env_cell,

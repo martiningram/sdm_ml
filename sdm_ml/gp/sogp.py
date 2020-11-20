@@ -6,42 +6,32 @@ from svgp.jax.helpers.sogp import (
     fit_bernoulli_sogp,
     ard_plus_bias_kernel_currier,
     gamma_default_lscale_prior_fn,
+    get_kernel_fun,
+    constrain_positive,
 )
-from svgp.jax.helpers.svgp_spec import project_to_x
+from svgp.jax.helpers.svgp_spec import project_to_x, SVGPSpec
 from sdm_ml.presence_absence_model import PresenceAbsenceModel
 from sklearn.preprocessing import StandardScaler
 from ml_tools.jax_kernels import ard_rbf_kernel, matern_kernel_32
 from functools import partial
 from ml_tools.normals import normal_cdf_integral
+from glob import glob
+from ml_tools.paths import base_name_from_path
+from ml_tools.utils import load_pickle_safely
 
 
 class SOGP(PresenceAbsenceModel):
     def __init__(self, n_inducing, kernel, seed=2):
 
-        assert kernel in [
-            "matern_32",
-            "rbf",
-        ], "Only matern_32 and rbf kernels supported for now!"
+        assert kernel in ["matern_32",], "Only matern_32 kernel supported for now!"
 
-        self.base_kernel_fn = (
-            matern_kernel_32 if kernel == "matern_32" else ard_rbf_kernel
-        )
+        self.base_kernel_fn = matern_kernel_32
 
         self.n_inducing = n_inducing
         self.seed = seed
 
         self.scaler = None
         self.fit_results = None
-
-    @classmethod
-    def from_fit_result(cls, fit_result, scaler):
-
-        base_object = cls(n_inducing=fit_result.mu.shape[0], kernel=fit_result.kernel)
-
-        base_object.fit_result = fit_result
-        base_object.scaler = scaler
-
-        return base_object
 
     def fit(self, X, y):
         # TODO: Consider allowing the priors to change
@@ -105,3 +95,45 @@ class SOGP(PresenceAbsenceModel):
         # Save the scaler
         with open(os.path.join(target_folder, "scaler.pkl"), "wb") as f:
             pickle.dump(self.scaler, f)
+
+    @classmethod
+    def restore_model(cls, folder):
+        # TODO: Lots of code duplication here with the checklist SOGP; maybe improve.
+
+        all_results_files = glob(os.path.join(folder, "results_file_*.npz"))
+
+        # TODO: This is admittedly a little bit obscure. The key just gets the
+        # number, so that they are sorted.
+        all_results_files = sorted(
+            all_results_files, key=lambda x: int(base_name_from_path(x).split("_")[-1])
+        )
+
+        scaler = load_pickle_safely(os.path.join(folder, "scaler.pkl"))
+        species_names = list()
+        fit_results = list()
+
+        for cur_results_file in all_results_files:
+
+            with open(cur_results_file, "rb") as f:
+
+                cur_theta = dict(np.load(f))
+
+                cur_kern_fn = get_kernel_fun(
+                    ard_plus_bias_kernel_currier, cur_theta, constrain_positive
+                )
+
+                cur_spec = SVGPSpec(
+                    m=cur_theta["mu"],
+                    L_elts=cur_theta["L_elts"],
+                    Z=cur_theta["Z"],
+                    kern_fn=cur_kern_fn,
+                )
+
+                fit_results.append([cur_spec, cur_theta])
+
+        model = cls(n_inducing=cur_theta["mu"].shape[0], kernel="matern_32")
+
+        model.scaler = scaler
+        model.fit_results = fit_results
+
+        return model
