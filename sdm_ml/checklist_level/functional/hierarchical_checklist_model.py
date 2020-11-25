@@ -140,7 +140,7 @@ def predict_direct(fit_result, X_env, n_draws=100):
     prob_obs_direct = get_posterior_draws(
         fit_result["free_means"],
         fit_result["free_sds"],
-        theta_constraints,
+        {},
         fun_to_apply=partial(pred_fun, X_env=X_env),
         n_draws=n_draws,
     ).mean(axis=0)
