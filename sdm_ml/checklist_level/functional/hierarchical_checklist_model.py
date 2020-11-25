@@ -14,7 +14,6 @@ theta_constraints = {
 }
 
 
-@partial(jit, static_argnums=6)
 def calculate_likelihood_single(
     X_checklist,
     X_env,
@@ -24,6 +23,8 @@ def calculate_likelihood_single(
     cur_y,
     cell_ids,
 ):
+
+    cell_ids = jnp.array(cell_ids)
 
     obs_logits = X_checklist @ cur_obs_coefs
     env_logits = X_env @ cur_env_slopes + cur_env_intercept
