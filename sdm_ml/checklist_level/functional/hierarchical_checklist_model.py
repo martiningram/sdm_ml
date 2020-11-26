@@ -14,7 +14,6 @@ theta_constraints = {
 }
 
 
-@partial(jit, static_argnums=6)
 def calculate_likelihood_single(
     X_checklist,
     X_env,
@@ -74,6 +73,8 @@ def calculate_prior(theta):
     )
 
     prior = prior + jnp.sum(norm.logpdf(theta["env_slope_prior_sds"]))
+    prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_means"]))
+    prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_sds"]))
 
     # TODO: Maybe put hyperpriors on the obs coef stuff too
 
