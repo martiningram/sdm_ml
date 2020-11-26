@@ -31,8 +31,10 @@ def create_shapes_and_constraints(n_protocols, n_s, n_env_covs, n_daytimes):
         "obs_intercept_sd": (),
         "protocol_slope_additions": (n_protocols - 1, n_s),
         "protocol_intercept_additions": (n_protocols - 1, n_s),
-        "protocol_slope_additions_sd": (),
-        "protocol_intercept_additions_sd": (),
+        "protocol_slope_additions_mean": (n_protocols - 1),
+        "protocol_slope_additions_sd": (n_protocols - 1),
+        "protocol_intercept_additions_mean": (n_protocols - 1),
+        "protocol_intercept_additions_sd": (n_protocols - 1),
         "env_slope_prior_sd": (n_env_covs),
         "daytime_intercept_additions": (n_daytimes - 1, n_s),
         "daytime_intercept_additions_sd": (n_daytimes - 1),
@@ -106,15 +108,17 @@ def calculate_prior(theta):
 
     prior = prior + jnp.sum(
         norm.logpdf(
-            theta["protocol_slope_additions"], 0.0, theta["protocol_slope_additions_sd"]
+            theta["protocol_slope_additions"],
+            theta["protocol_slope_additions_mean"].reshape(-1, 1),
+            theta["protocol_slope_additions_sd"].reshape(-1, 1),
         )
     )
 
     prior = prior + jnp.sum(
         norm.logpdf(
             theta["protocol_intercept_additions"],
-            0.0,
-            theta["protocol_intercept_additions_sd"],
+            theta["protocol_intercept_additions_mean"].reshape(-1, 1),
+            theta["protocol_intercept_additions_sd"].reshape(-1, 1),
         )
     )
 
@@ -124,8 +128,6 @@ def calculate_prior(theta):
         )
     )
 
-    prior = prior + norm.logpdf(theta["env_slope_prior_sd"])
-
     prior = prior + jnp.sum(
         norm.logpdf(
             theta["daytime_intercept_additions"],
@@ -134,7 +136,20 @@ def calculate_prior(theta):
         )
     )
 
-    prior = prior + jnp.sum(norm.logpdf(theta["daytime_intercept_additions_sd"]))
+    # Hyperpriors
+    # Env slopes: SD only
+    prior = prior + norm.logpdf(theta["env_slope_prior_sd"])
+
+    # Others: Mean and sd get N(0, 1)
+    for cur_var in [
+        "protocol_slope_additions",
+        "protocol_intercept_additions",
+        "daytime_intercept_additions",
+        "duration_slope",
+        "obs_intercept",
+    ]:
+        prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_sd"]))
+        prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_mean"]))
 
     return prior
 
