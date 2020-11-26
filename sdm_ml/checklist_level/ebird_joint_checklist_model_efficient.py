@@ -148,8 +148,8 @@ def calculate_prior(theta):
         "duration_slope",
         "obs_intercept",
     ]:
-        prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_sd"]))
         prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_mean"]))
+        prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_sd"]))
 
     return prior
 
