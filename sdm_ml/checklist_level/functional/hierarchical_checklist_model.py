@@ -76,8 +76,6 @@ def calculate_prior(theta):
     prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_means"]))
     prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_sds"]))
 
-    # TODO: Maybe put hyperpriors on the obs coef stuff too
-
     return prior
 
 
