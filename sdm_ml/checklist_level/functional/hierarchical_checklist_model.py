@@ -10,7 +10,7 @@ from functools import partial
 
 theta_constraints = {
     "obs_coef_prior_sds": constrain_positive,
-    "env_slope_prior_sds": constrain_positive,
+    # "env_slope_prior_sds": constrain_positive,
 }
 
 
@@ -66,13 +66,15 @@ def calculate_prior(theta):
         )
     )
 
-    prior = prior + jnp.sum(
-        norm.logpdf(
-            theta["env_slopes"], 0.0, theta["env_slope_prior_sds"].reshape(-1, 1)
-        )
-    )
+    # prior = prior + jnp.sum(
+    #     norm.logpdf(
+    #         theta["env_slopes"], 0.0, theta["env_slope_prior_sds"].reshape(-1, 1)
+    #     )
+    # )
 
-    prior = prior + jnp.sum(norm.logpdf(theta["env_slope_prior_sds"]))
+    prior = prior + jnp.sum(norm.logpdf(theta["env_slopes"], 0.0, 1.0))
+
+    # prior = prior + jnp.sum(norm.logpdf(theta["env_slope_prior_sds"]))
     prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_means"]))
     prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_sds"]))
 
@@ -101,7 +103,7 @@ def fit(
         "obs_coefs": (n_check_covs, n_s),
         "obs_coef_prior_means": (n_check_covs, 1),
         "obs_coef_prior_sds": (n_check_covs, 1),
-        "env_slope_prior_sds": (n_env_covs),
+        # "env_slope_prior_sds": (n_env_covs),
     }
 
     # Curry and jit the likelihood

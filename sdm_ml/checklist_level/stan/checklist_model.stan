@@ -30,13 +30,14 @@ parameters {
 
   row_vector[n_species] env_intercepts;
 
-  matrix[n_env_covs, n_species] env_slopes_raw;
+  // matrix[n_env_covs, n_species] env_slopes_raw;
+  matrix[n_env_covs, n_species] env_slopes;
 
   // This includes an intercept
   matrix[n_obs_covs, n_species] obs_coefs_raw;
 
   // The standard deviations
-  vector<lower=0>[n_env_covs] env_slope_sds;
+  // vector<lower=0>[n_env_covs] env_slope_sds;
   vector<lower=0>[n_obs_covs] obs_slope_sds;
 
   vector[n_obs_covs] obs_slope_means;
@@ -45,8 +46,8 @@ parameters {
 transformed parameters {
 
   // Not sure this is most efficient but hey...
-  matrix[n_env_covs, n_species] env_slopes =
-    rep_matrix(env_slope_sds, n_species) .* env_slopes_raw;
+  // matrix[n_env_covs, n_species] env_slopes =
+  //   rep_matrix(env_slope_sds, n_species) .* env_slopes_raw;
   
   matrix[n_obs_covs, n_species] obs_coefs =
     rep_matrix(obs_slope_sds, n_species) .* obs_coefs_raw +
@@ -60,10 +61,11 @@ model {
   matrix[N, n_species] log_obs_prob_given_present = rep_matrix(0., N, n_species);
 
   // Some priors
-  to_vector(env_slopes_raw) ~ normal(0, 1);
+  // to_vector(env_slopes_raw) ~ normal(0, 1);
+  to_vector(env_slopes) ~ normal(0, 1);
   to_vector(obs_coefs_raw) ~ normal(0, 1);
   // Half-normal prior on slope sds
-  env_slope_sds ~ normal(0, 1);
+  // env_slope_sds ~ normal(0, 1);
   obs_slope_means ~ normal(0, 1);
   obs_slope_sds ~ normal(0, 1);
 
