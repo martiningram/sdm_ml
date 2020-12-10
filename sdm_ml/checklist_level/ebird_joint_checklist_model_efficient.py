@@ -31,9 +31,11 @@ def create_shapes_and_constraints(n_protocols, n_s, n_env_covs, n_daytimes):
         "obs_intercept_sd": (),
         "protocol_slope_additions": (n_protocols - 1, n_s),
         "protocol_intercept_additions": (n_protocols - 1, n_s),
-        "protocol_slope_additions_sd": (),
-        "protocol_intercept_additions_sd": (),
-        "env_slope_prior_sd": (n_env_covs),
+        "protocol_slope_additions_mean": (n_protocols - 1),
+        "protocol_slope_additions_sd": (n_protocols - 1),
+        "protocol_intercept_additions_mean": (n_protocols - 1),
+        "protocol_intercept_additions_sd": (n_protocols - 1),
+        # "env_slope_prior_sd": (n_env_covs),
         "daytime_intercept_additions": (n_daytimes - 1, n_s),
         "daytime_intercept_additions_sd": (n_daytimes - 1),
         "daytime_intercept_additions_mean": (n_daytimes - 1),
@@ -44,7 +46,7 @@ def create_shapes_and_constraints(n_protocols, n_s, n_env_covs, n_daytimes):
         "obs_intercept_sd": constrain_positive,
         "protocol_slope_additions_sd": constrain_positive,
         "protocol_intercept_additions_sd": constrain_positive,
-        "env_slope_prior_sd": constrain_positive,
+        # "env_slope_prior_sd": constrain_positive,
         "daytime_intercept_additions_sd": constrain_positive,
     }
 
@@ -106,25 +108,28 @@ def calculate_prior(theta):
 
     prior = prior + jnp.sum(
         norm.logpdf(
-            theta["protocol_slope_additions"], 0.0, theta["protocol_slope_additions_sd"]
+            theta["protocol_slope_additions"],
+            theta["protocol_slope_additions_mean"].reshape(-1, 1),
+            theta["protocol_slope_additions_sd"].reshape(-1, 1),
         )
     )
 
     prior = prior + jnp.sum(
         norm.logpdf(
             theta["protocol_intercept_additions"],
-            0.0,
-            theta["protocol_intercept_additions_sd"],
+            theta["protocol_intercept_additions_mean"].reshape(-1, 1),
+            theta["protocol_intercept_additions_sd"].reshape(-1, 1),
         )
     )
 
-    prior = prior + jnp.sum(
-        norm.logpdf(
-            theta["env_slopes"], 0.0, theta["env_slope_prior_sd"].reshape(-1, 1)
-        )
-    )
+    # prior = prior + jnp.sum(
+    #     norm.logpdf(
+    #         theta["env_slopes"], 0.0, theta["env_slope_prior_sd"].reshape(-1, 1)
+    #     )
+    # )
 
-    prior = prior + norm.logpdf(theta["env_slope_prior_sd"])
+    # N(0, 1) prior
+    prior = prior + jnp.sum(norm.logpdf(theta["env_slopes"], 0.0, 1.0))
 
     prior = prior + jnp.sum(
         norm.logpdf(
@@ -134,14 +139,32 @@ def calculate_prior(theta):
         )
     )
 
-    prior = prior + jnp.sum(norm.logpdf(theta["daytime_intercept_additions_sd"]))
+    # Hyperpriors
+    # Env slopes: SD only
+    # prior = prior + norm.logpdf(theta["env_slope_prior_sd"])
+
+    # Others: Mean and sd get N(0, 1)
+    for cur_var in [
+        "protocol_slope_additions",
+        "protocol_intercept_additions",
+        "daytime_intercept_additions",
+        "duration_slope",
+        "obs_intercept",
+    ]:
+        prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_mean"]))
+        prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_sd"]))
 
     return prior
 
 
 class EBirdJointChecklistModel(ChecklistModel):
     def __init__(
-        self, M=20, n_pred_draws=1000, verbose_fit=True, opt_method="trust-ncg"
+        self,
+        M=20,
+        n_pred_draws=1000,
+        verbose_fit=True,
+        opt_method="trust-ncg",
+        env_interactions=True,
     ):
 
         self.scaler = None
@@ -149,6 +172,7 @@ class EBirdJointChecklistModel(ChecklistModel):
         self.n_pred_draws = n_pred_draws
         self.verbose_fit = verbose_fit
         self.opt_method = opt_method
+        self.env_interactions = env_interactions
 
     @staticmethod
     def assemble_dataset(
@@ -237,19 +261,21 @@ class EBirdJointChecklistModel(ChecklistModel):
         return obs_covariates, encoders
 
     @staticmethod
-    def create_design_matrix_env(X_env):
+    def create_design_matrix_env(X_env, add_interactions=True):
 
-        # TODO: Maybe make interaction terms optional
         cov_names = X_env.columns
 
         main_effects = "+".join(cov_names)
         quad_terms = "+".join([f"I({x}**2)" for x in cov_names])
-        inter_terms = "(" + main_effects + ")"
-        inter_terms = inter_terms + ":" + inter_terms
 
-        env_design_mat = dmatrix(
-            main_effects + "+" + quad_terms + "+" + inter_terms + "- 1", X_env
-        )
+        model_str = main_effects + "+" + quad_terms
+
+        if add_interactions:
+            inter_terms = "(" + main_effects + ")"
+            inter_terms = inter_terms + ":" + inter_terms
+            model_str = model_str + "+" + inter_terms
+
+        env_design_mat = dmatrix(model_str + "- 1", X_env)
 
         return env_design_mat
 
@@ -274,7 +300,7 @@ class EBirdJointChecklistModel(ChecklistModel):
         obs_covs, encoders = self.derive_obs_covariates(X_checklist)
 
         # Create the design matrix for the environmental variables
-        env_design_mat = self.create_design_matrix_env(X_env)
+        env_design_mat = self.create_design_matrix_env(X_env, self.env_interactions)
 
         self.env_cov_names = env_design_mat.design_info.column_names
 
@@ -310,6 +336,7 @@ class EBirdJointChecklistModel(ChecklistModel):
             constrain_fun_dict=constraints,
             verbose=self.verbose_fit,
             opt_method=self.opt_method,
+            n_draws=None,
         )
 
     def predict_log_marginal_probabilities(self, X: pd.DataFrame) -> np.ndarray:

@@ -1,26 +1,22 @@
-from .checklist_model import ChecklistModel
+from ..checklist_model import ChecklistModel
 import numpy as np
 from typing import Callable
 import pandas as pd
 from tqdm import tqdm
-from .functional.hierarchical_checklist_model import fit, predict_direct
 from patsy import dmatrix
 from jax_advi.advi import get_pickleable_subset
 from ml_tools.utils import save_pickle_safely
 from os import makedirs
 from os.path import join
 from sklearn.preprocessing import StandardScaler
+from ml_tools.stan import load_stan_model_cached
 
 
-class EBirdJointChecklistModel(ChecklistModel):
-    def __init__(
-        self, M=20, n_pred_draws=1000, verbose_fit=True, env_interactions=True
-    ):
+class EBirdJointChecklistModelStan(ChecklistModel):
+    def __init__(self, model_file, env_interactions=False):
 
         self.scaler = None
-        self.M = M
-        self.n_pred_draws = n_pred_draws
-        self.verbose_fit = verbose_fit
+        self.stan_model = load_stan_model_cached(model_file)
         self.env_interactions = env_interactions
 
     @staticmethod
@@ -152,9 +148,19 @@ class EBirdJointChecklistModel(ChecklistModel):
 
         X_env = self.scaler.fit_transform(np.asarray(env_design_mat))
 
-        self.fit_result = fit(
-            X_env, obs_covs, y_full, cell_ids, M=self.M, verbose=self.verbose_fit
-        )
+        model_data = {
+            "K": X_checklist.shape[0],
+            "N": X_env.shape[0],
+            "cell_ids": cell_ids + 1,
+            "n_obs_covs": obs_covs.shape[1],
+            "n_env_covs": X_env.shape[1],
+            "env_covs": X_env,
+            "obs_covs": obs_covs,
+            "n_species": len(species_names),
+            "y": y_full,
+        }
+
+        self.fit_results = self.stan_model.sampling(data=model_data)
 
     def predict_log_marginal_probabilities(self, X: pd.DataFrame) -> np.ndarray:
 

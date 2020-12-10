@@ -129,7 +129,7 @@ def load_ebird_dataset(
 
     # NOTE: This is pretty crucial to ensure that the numerical labels later
     # match up.
-    covariates = covariates.sort_values("cell")
+    covariates = covariates.sort_values("cell").reset_index(drop=True)
 
     assert drop_nan_cells, "Currently expects NaN cells to be dropped"
 
@@ -220,3 +220,26 @@ def load_ebird_dataset(
         species_names=species_names,
         get_species_data=get_species_data,
     )
+
+
+def random_cell_subset(
+    n_cells, numeric_checklist_cell_ids, n_cells_to_pick=1000, seed=2
+):
+
+    np.random.seed(seed)
+
+    # We assume here that there are cells numbered 1, ... n_cells.
+    # First, pick the cells we are keeping:
+    # These will be the indices for the array.
+    picked = sorted(np.random.choice(n_cells, size=n_cells_to_pick, replace=False))
+
+    # Create the mask to subset the checklist data:
+    checklist_mask = np.isin(numeric_checklist_cell_ids, picked)
+
+    # Now we also need new checklist ids
+    old_corresponding_cells = numeric_checklist_cell_ids[checklist_mask]
+    old_to_new_encoder = LabelEncoder()
+    old_to_new_encoder.fit(picked)
+    new_corresponding_cells = old_to_new_encoder.transform(old_corresponding_cells)
+
+    return picked, checklist_mask, new_corresponding_cells
