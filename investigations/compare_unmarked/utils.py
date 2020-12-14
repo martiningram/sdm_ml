@@ -1,18 +1,14 @@
 from sdm_ml.checklist_level.checklist_dataset import (
-    load_ebird_dataset,
+    load_ebird_dataset_using_env_var,
     get_arrays_for_fitting,
 )
 import numpy as np
+from os.path import join
 
 
 def fetch_data(species_name="Cardinalis cardinalis"):
 
-    # TODO: Use env variable
-    ebird_dataset = load_ebird_dataset(
-        "/home/martin/data/ebird-basic-dataset/scripts/checklists_with_folds.csv",
-        "/home/martin/data/ebird-basic-dataset/scripts/raster_cell_covs.csv",
-        "/home/martin/data/ebird-basic-dataset/june_2019/species_separated/",
-    )
+    ebird_dataset = load_ebird_dataset_using_env_var()
 
     arrays = get_arrays_for_fitting(ebird_dataset, species_name)
 

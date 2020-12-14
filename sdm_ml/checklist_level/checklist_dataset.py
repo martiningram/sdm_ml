@@ -7,6 +7,7 @@ from os.path import join
 from ml_tools.paths import base_name_from_path
 from ml_tools.modelling import remove_correlated_variables
 from sklearn.preprocessing import LabelEncoder
+import os
 
 
 class ChecklistLevelData(NamedTuple):
@@ -110,6 +111,19 @@ def get_arrays_for_fitting(
             checklist_data.train_checklist_data.cell_id
         ),
     }
+
+
+def load_ebird_dataset_using_env_var(
+    train_folds=[1, 2, 3], test_folds=[4], drop_nan_cells=True,
+):
+
+    ebird_dataset = load_ebird_dataset(
+        join(os.environ["EBIRD_DATA_PATH"], "checklists_with_folds.csv"),
+        join(os.environ["EBIRD_DATA_PATH"], "raster_cell_covs.csv"),
+        os.environ["EBIRD_SPECIES_DATA_PATH"],
+    )
+
+    return ebird_dataset
 
 
 def load_ebird_dataset(
