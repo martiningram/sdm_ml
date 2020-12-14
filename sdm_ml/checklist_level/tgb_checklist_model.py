@@ -11,7 +11,7 @@ class TGBChecklistModel(ChecklistModel):
 
     def fit(
         self,
-        X_env_cell: np.ndarray,
+        X_env_cell: pd.DataFrame,
         X_checklist: Callable[[str], pd.DataFrame],
         y_checklist: Callable[[str], np.ndarray],
         checklist_cell_ids: Callable[[str], np.ndarray],
@@ -37,7 +37,7 @@ class TGBChecklistModel(ChecklistModel):
 
         cell_ids = np.arange(0, np.max(cell_ids + 1))
         y_full = np.stack(y_full, axis=1)
-        X_env = X_env_cell[cell_ids]
+        X_env = X_env_cell.values
         print("Done.")
 
         print("Fitting PA Model...")

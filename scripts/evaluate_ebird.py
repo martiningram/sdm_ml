@@ -3,25 +3,30 @@ from sdm_ml.checklist_level.checklist_dataset import (
     load_ebird_dataset,
     get_arrays_for_fitting,
 )
-from sdm_ml.checklist_level.ebird_joint_checklist_model_efficient import EBirdJointChecklistModel
+from sdm_ml.checklist_level.ebird_joint_checklist_model_efficient import (
+    EBirdJointChecklistModel,
+)
 from sdm_ml.dataset import load_bbs_dataset_2019
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.dataset import SpeciesData
 import pandas as pd
 import time
+from os.path import join
+from sdm_ml.checklist_level.tgb_checklist_model import TGBChecklistModel
+from sdm_ml.linear_model_advi import LinearModelADVI
+from sdm_ml.scikit_model import ScikitModel
 
 
 ebird_dataset = load_ebird_dataset(
-    "/home/martin/data/scripts/checklists_with_folds.csv",
-    "/home/martin/data/scripts/raster_cell_covs.csv",
-    "/home/martin/data/species_separated"
+    join(os.environ["EBIRD_DATA_PATH"], "checklists_with_folds.csv"),
+    join(os.environ["EBIRD_DATA_PATH"], "raster_cell_covs.csv"),
+    os.environ["EBIRD_SPECIES_DATA_PATH"],
 )
 
-model = EBirdJointChecklistModel(env_interactions=False)
 
 bbs_2019 = load_bbs_dataset_2019(
-    "/home/martin/data/scripts/bbs_with_folds.csv",
-    "/home/martin/data/scripts/raster_cell_covs.csv"
+    join(os.environ["EBIRD_DATA_PATH"], "bbs_with_folds.csv"),
+    join(os.environ["EBIRD_DATA_PATH"], "raster_cell_covs.csv"),
 )
 
 # Fetch arrays for one species
@@ -52,15 +57,18 @@ species_names = sorted(
 
 # species_names = species_names[:4]
 
-start_time = time.time()
-model.fit(
-    X_env_cell=X_env_cell,
-    X_checklist=X_checklist,
-    y_checklist=y_checklist,
-    checklist_cell_ids=checklist_cell_ids,
-    species_names=species_names,
+linear_advi_model = LinearModelADVI()
+rf_model = ScikitModel(
+    model_fun=lambda: ScikitModel.create_cross_validated_forest(
+        len(arrays["env_covariates"].columns)
+    )
 )
-runtime = time.time() - start_time
+
+models = {
+    # "checklist_model_vi": EBirdJointChecklistModel(env_interactions=False),
+    # "linear_model_vi_tgb_quadratic": TGBChecklistModel(linear_advi_model),
+    "rf_cv": TGBChecklistModel(rf_model),
+}
 
 test_set = bbs_2019["test"]
 
@@ -73,9 +81,20 @@ test_set_dict["covariates"] = pd.DataFrame(
 
 test_set_amended = SpeciesData(**test_set_dict)
 
-target_dir = "./evaluations/hierarchical_checklist_model_advi_rerun_no_inter_no_env_hierarchy/"
+for cur_model_name, model in models.items():
 
-compute_and_save_results_for_evaluation(
-    test_set_amended, model, target_dir)
+    start_time = time.time()
+    model.fit(
+        X_env_cell=X_env_cell,
+        X_checklist=X_checklist,
+        y_checklist=y_checklist,
+        checklist_cell_ids=checklist_cell_ids,
+        species_names=species_names,
+    )
+    runtime = time.time() - start_time
 
-print(runtime, file=open(target_dir + 'runtime.txt', "w"))
+    cur_target_dir = f"./evaluations/comparison/{cur_model_name}/"
+
+    compute_and_save_results_for_evaluation(test_set_amended, model, cur_target_dir)
+
+    print(runtime, file=open(cur_target_dir + "runtime.txt", "w"))

@@ -81,23 +81,23 @@ all_species_names = sorted(
     list(set(ebird_dataset.species_names) & (set(bbs_2019["train"].outcomes.columns)))
 )
 
-assert n_species == 8
 
-species_names = [
-    "Pandion haliaetus",
-    "Spizella passerina",
-    "Mimus polyglottos",
-    "Empidonax difficilis",
-    "Ardea alba",
-    "Gallinula galeata",
-    "Phalacrocorax auritus",
-    "Coccothraustes vespertinus",
-]
-
-# counts = {x: y_checklist(x).sum() for x in all_species_names}
-# counts = pd.Series(counts)
-# to_pick_from = counts[counts > min_presence_count].index
-# species_names = np.random.choice(to_pick_from, size=n_species, replace=False)
+if n_species == 8:
+    species_names = [
+        "Pandion haliaetus",
+        "Spizella passerina",
+        "Mimus polyglottos",
+        "Empidonax difficilis",
+        "Ardea alba",
+        "Gallinula galeata",
+        "Phalacrocorax auritus",
+        "Coccothraustes vespertinus",
+    ]
+else:
+    counts = {x: y_checklist(x).sum() for x in all_species_names}
+    counts = pd.Series(counts)
+    to_pick_from = counts[counts > min_presence_count].index
+    species_names = np.random.choice(to_pick_from, size=n_species, replace=False)
 
 fit_args = dict(
     X_env_cell=rel_X_env,
