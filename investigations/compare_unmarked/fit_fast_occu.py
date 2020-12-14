@@ -4,6 +4,7 @@ from ml_tools.patsy import create_formula
 from utils import fetch_data
 import pandas as pd
 import numpy as np
+import time
 
 
 obs_covs, arrays = fetch_data()
@@ -20,6 +21,8 @@ env_formula = create_formula(
 )
 obs_formula = "protocol_type + protocol_type:log_duration + time_of_day + log_duration"
 
+start_time = time.time()
+
 results = fit(
     X_env_scaled,
     X_obs,
@@ -29,5 +32,9 @@ results = fit(
     obs_formula,
 )
 
+time_taken = time.time() - start_time
+
 results[0].to_csv("./fast_occu_env_coefs.csv")
 results[1].to_csv("./fast_occu_obs_coefs.csv")
+
+print(time_taken, file=open("fast_occu_runtime.txt", "w"))
