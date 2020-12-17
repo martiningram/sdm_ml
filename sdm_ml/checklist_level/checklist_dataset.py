@@ -257,3 +257,31 @@ def random_cell_subset(
     new_corresponding_cells = old_to_new_encoder.transform(old_corresponding_cells)
 
     return picked, checklist_mask, new_corresponding_cells
+
+
+def add_derived_covariates(ebird_obs_df):
+
+    obs_covs = ebird_obs_df
+
+    obs_covs["log_duration"] = np.log(obs_covs["duration_minutes"])
+
+    # TODO: This logic should perhaps be moved somewhere more central?
+    hour_of_day = (
+        obs_covs["time_observations_started"].str.split(":").str.get(0).astype(int)
+    )
+
+    time_of_day = np.select(
+        [
+            (hour_of_day >= 5) & (hour_of_day < 12),
+            (hour_of_day > 12) & (hour_of_day < 21),
+        ],
+        ["morning", "afternoon/evening"],
+        default="night",
+    )
+
+    obs_covs["time_of_day"] = time_of_day
+    obs_covs["protocol_type"] = obs_covs["protocol_type"].str.replace(
+        "Traveling - Property Specific", "Traveling"
+    )
+
+    return obs_covs

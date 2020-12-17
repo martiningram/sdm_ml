@@ -6,6 +6,7 @@ from patsy import dmatrix
 from functools import partial
 from jax import jit
 from sdm_ml.checklist_level.likelihoods import compute_checklist_likelihood
+from sklearn.preprocessing import StandardScaler
 
 
 def likelihood_fun(theta, m, X_env, X_checklist, checklist_cell_ids, n_cells):
@@ -27,6 +28,7 @@ def fit(
     cell_ids: np.ndarray,
     env_formula: str,
     checklist_formula: str,
+    scale_env_data=False,
 ):
 
     env_design_mat = dmatrix(env_formula, X_env)
@@ -34,6 +36,12 @@ def fit(
 
     env_covs = np.asarray(env_design_mat)
     checklist_covs = np.asarray(checklist_design_mat)
+
+    if scale_env_data:
+        scaler = StandardScaler()
+        env_covs = scaler.fit_transform(env_covs)
+    else:
+        scaler = None
 
     theta = {
         "env_coefs": np.zeros(env_covs.shape[1]),
@@ -54,7 +62,7 @@ def fit(
 
     fit_result, opt_result = find_map_estimate(theta, lik_curried)
 
-    assert opt_result.success, "Optimisation failed!"
+    # assert opt_result.success, "Optimisation failed!"
 
     env_coef_results = pd.Series(
         fit_result["env_coefs"], index=env_design_mat.design_info.column_names
@@ -64,4 +72,30 @@ def fit(
         fit_result["obs_coefs"], index=checklist_design_mat.design_info.column_names
     )
 
-    return env_coef_results, obs_coef_results
+    return {
+        "env_coefs": env_coef_results,
+        "obs_coefs": obs_coef_results,
+        "env_scaler": scaler,
+        "env_formula": env_formula,
+        "checklist_formula": checklist_formula,
+        "optimisation_successful": opt_result.success,
+    }
+
+
+def predict_env_logit(X_env, env_formula, env_coefs, scaler=None):
+
+    env_design_mat = np.asarray(dmatrix(env_formula, X_env))
+
+    if scaler is not None:
+        env_design_mat = scaler.transform(env_design_mat)
+
+    env_logit = env_design_mat @ env_coefs
+
+    return env_logit
+
+
+def predict_env_prob(X_env, env_formula, env_coefs):
+
+    env_logit = predict_env_logit(X_env, env_formula, env_coefs)
+
+    return jnp.nn.sigmoid(env_logit)

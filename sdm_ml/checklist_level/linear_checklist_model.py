@@ -1,10 +1,7 @@
 from .checklist_model import ChecklistModel
-from sklearn.preprocessing import StandardScaler
 import numpy as np
+import pandas as pd
 import jax.numpy as jnp
-from ml_tools.constrain import apply_transformation
-from jax.scipy.stats import norm
-from ml_tools.max_lik import find_map_estimate
 from .likelihoods import compute_checklist_likelihood
 from functools import partial
 from tqdm import tqdm
@@ -13,40 +10,26 @@ from jax.nn import log_sigmoid
 import os
 from typing import Callable
 import pickle
+from .functional.max_lik_occu_model import fit, predict_env_logit
+from ml_tools.patsy import create_formula
 
 
 class LinearChecklistModel(ChecklistModel):
-    def __init__(self):
+    def __init__(self, env_formula, det_formula):
 
-        self.scaler = None
         self.fit_results = None
         self.species_names = None
+        self.env_formula = env_formula
+        self.det_formula = det_formula
 
     def fit(
         self,
-        X_env_cell: np.ndarray,
-        X_checklist: Callable[[str], np.ndarray],
+        X_env_cell: pd.DataFrame,
+        X_checklist: Callable[[str], pd.DataFrame],
         y_checklist: Callable[[str], np.ndarray],
         checklist_cell_ids: Callable[[str], np.ndarray],
         species_names: np.ndarray,
     ) -> None:
-
-        self.scaler = StandardScaler()
-        X_env_cell = self.scaler.fit_transform(X_env_cell)
-
-        n_c_env = X_env_cell.shape[1]
-
-        def likelihood_fun(theta, m, X_env, X_checklist, checklist_cell_ids, n_cells):
-
-            env_logit = X_env @ theta["env_coefs"] + theta["env_intercept"]
-            # obs_logit = X_checklist @ theta["obs_coefs"]
-            obs_logit = X_checklist * 0.41 - 3.03
-
-            likelihood = compute_checklist_likelihood(
-                env_logit, obs_logit, m, checklist_cell_ids, n_cells
-            )
-
-            return jnp.sum(likelihood)
 
         self.fit_results = list()
         self.species_names = species_names
@@ -54,43 +37,22 @@ class LinearChecklistModel(ChecklistModel):
         for cur_species in tqdm(species_names):
 
             cur_X_checklist = X_checklist(cur_species)
-
-            n_c_obs = cur_X_checklist.shape[1]
-
-            assert n_c_obs == 1, "Currently only log duration is supported!"
-
-            cur_X_checklist = cur_X_checklist.reshape(-1)
-
-            init_theta = {
-                "env_coefs": np.zeros(n_c_env),
-                "env_intercept": np.array(0.0),
-            }
-
-            cur_m = 1 - y_checklist(cur_species)
+            cur_y_checklist = y_checklist(cur_species)
             cur_cell_ids = checklist_cell_ids(cur_species)
-            n_cells = np.max(cur_cell_ids) + 1
 
-            cur_lik_fun = partial(
-                likelihood_fun,
-                m=cur_m,
-                X_env=X_env_cell,
-                X_checklist=cur_X_checklist,
-                checklist_cell_ids=cur_cell_ids,
-                n_cells=n_cells,
+            fit_result = fit(
+                X_env_cell,
+                cur_X_checklist,
+                cur_y_checklist,
+                cur_cell_ids,
+                self.env_formula,
+                self.det_formula,
+                scale_env_data=True,
             )
 
-            final_theta, opt_result = find_map_estimate(
-                init_theta,
-                cur_lik_fun,
-                prior_fun=lambda theta: jnp.sum(norm.logpdf(theta["env_coefs"]))
-                # + jnp.sum(norm.logpdf(theta["obs_coefs"])),
-            )
+            self.fit_results.append(fit_result)
 
-            self.fit_results.append(final_theta)
-
-    def predict_log_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
-
-        X = self.scaler.transform(X)
+    def predict_log_marginal_probabilities(self, X: pd.DataFrame) -> np.ndarray:
 
         predictions = list()
 
@@ -98,8 +60,11 @@ class LinearChecklistModel(ChecklistModel):
             self.species_names, self.fit_results
         ):
 
-            cur_prediction = (
-                X @ cur_fit_result["env_coefs"] + cur_fit_result["env_intercept"]
+            cur_prediction = predict_env_logit(
+                X,
+                self.env_formula,
+                cur_fit_result["env_coefs"],
+                cur_fit_result["env_scaler"],
             )
 
             cur_log_prob_pres = log_sigmoid(cur_prediction)
@@ -111,7 +76,7 @@ class LinearChecklistModel(ChecklistModel):
 
         return predictions
 
-    def calculate_log_likelihood(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def calculate_log_likelihood(self, X: pd.DataFrame, y: np.ndarray) -> np.ndarray:
 
         predictions = self.predict_log_marginal_probabilities(X)
 
@@ -130,9 +95,11 @@ class LinearChecklistModel(ChecklistModel):
             np.savez(
                 os.path.join(target_folder, f"results_file_{i}"),
                 species_name=cur_species,
-                **cur_results,
+                env_coefs=cur_results["env_coefs"],
+                obs_coefs=cur_results["obs_coefs"],
+                successful=cur_result["optimisation_successful"],
             )
 
         # Save the scaler
         with open(os.path.join(target_folder, "scaler.pkl"), "wb") as f:
-            pickle.dump(self.scaler, f)
+            pickle.dump(self.fit_results[0]["env_scaler"], f)

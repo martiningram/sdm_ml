@@ -2,10 +2,12 @@ import os
 from sdm_ml.checklist_level.checklist_dataset import (
     load_ebird_dataset,
     get_arrays_for_fitting,
+    add_derived_covariates,
 )
 from sdm_ml.checklist_level.ebird_joint_checklist_model_efficient import (
     EBirdJointChecklistModel,
 )
+from sdm_ml.checklist_level.linear_checklist_model import LinearChecklistModel
 from sdm_ml.dataset import load_bbs_dataset_2019
 from sdm_ml.evaluation import compute_and_save_results_for_evaluation
 from sdm_ml.dataset import SpeciesData
@@ -15,6 +17,7 @@ from os.path import join
 from sdm_ml.checklist_level.tgb_checklist_model import TGBChecklistModel
 from sdm_ml.linear_model_advi import LinearModelADVI
 from sdm_ml.scikit_model import ScikitModel
+from ml_tools.patsy import create_formula
 
 
 ebird_dataset = load_ebird_dataset(
@@ -40,6 +43,7 @@ def X_checklist(species_name):
 
     arrays = get_arrays_for_fitting(ebird_dataset, species_name)
     X_obs = arrays["checklist_data"].observer_covariates
+    X_obs = add_derived_covariates(X_obs)
     return X_obs
 
 
@@ -64,10 +68,19 @@ rf_model = ScikitModel(
     )
 )
 
+env_formula = create_formula(
+    arrays["env_covariates"].columns,
+    main_effects=True,
+    quadratic_effects=True,
+    interactions=False,
+)
+obs_formula = "protocol_type + protocol_type:log_duration + time_of_day + log_duration"
+
 models = {
     # "checklist_model_vi": EBirdJointChecklistModel(env_interactions=False),
     # "linear_model_vi_tgb_quadratic": TGBChecklistModel(linear_advi_model),
-    "rf_cv": TGBChecklistModel(rf_model),
+    # "rf_cv": TGBChecklistModel(rf_model),
+    "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 
 test_set = bbs_2019["test"]

@@ -18,7 +18,7 @@ obs_covs = obs_df[["date", "ivel"]]
 cell_ids = obs_df["cell_id"].values.astype(int)
 present = obs_df["y"].values.astype(int)
 
-env_coefs, det_coefs = fit(
+results = fit(
     X_env=env_covs,
     X_checklist=obs_covs,
     y=present,
@@ -27,5 +27,5 @@ env_coefs, det_coefs = fit(
     checklist_formula="date + ivel",
 )
 
-env_coefs.to_csv("state_coefs_fast.csv")
-det_coefs.to_csv("det_coefs_fast.csv")
+results["env_coefs"].to_csv("state_coefs_fast.csv")
+results["det_coefs"].to_csv("det_coefs_fast.csv")
