@@ -97,7 +97,7 @@ class LinearChecklistModel(ChecklistModel):
                 species_name=cur_species,
                 env_coefs=cur_results["env_coefs"],
                 obs_coefs=cur_results["obs_coefs"],
-                successful=cur_result["optimisation_successful"],
+                successful=cur_results["optimisation_successful"],
             )
 
         # Save the scaler
