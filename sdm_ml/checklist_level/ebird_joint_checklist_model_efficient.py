@@ -17,7 +17,8 @@ from jax import jit, vmap
 import jax.numpy as jnp
 from sdm_ml.checklist_level.likelihoods import compute_checklist_likelihood
 from .functional.hierarchical_checklist_model import predict_direct
-from jax.nn import log_sigmoid
+from jax.nn import log_sigmoid, sigmoid
+from sdm_ml.checklist_level.utils import split_every
 
 
 def create_shapes_and_constraints(n_protocols, n_s, n_env_covs, n_daytimes):
@@ -309,54 +310,86 @@ class EBirdJointChecklistModel(ChecklistModel):
         )
 
     def predict_marginal_probabilities_direct(self, X: pd.DataFrame) -> np.ndarray:
+        def predict(X):
 
-        # Predict probability of direct observation
-        X_design = self.create_design_matrix_env(X, self.env_interactions)
-        X = self.scaler.transform(X_design)
-        direct_preds = predict_direct(self.fit_result, X, n_draws=self.n_pred_draws)
+            # Predict probability of direct observation
+            X_design = self.create_design_matrix_env(X, self.env_interactions)
+            X = self.scaler.transform(X_design)
+            direct_preds = predict_direct(self.fit_result, X, n_draws=self.n_pred_draws)
+            return direct_preds
 
-        return direct_preds
+        all_preds = list()
+
+        indices = np.arange(X.shape[0])
+
+        for cur_indices in split_every(100, indices):
+            cur_indices = list(cur_indices)
+            cur_X = X.iloc[cur_indices]
+            cur_preds = predict(cur_X)
+            all_preds.append(cur_preds)
+
+        all_preds = np.concatenate(all_preds, axis=0)
+
+        return pd.DataFrame(all_preds, columns=self.species_names)
 
     def predict_marginal_probabilities_obs(
         self, X: pd.DataFrame, X_obs: pd.DataFrame
     ) -> np.ndarray:
+        def predict(X, X_obs):
 
-        # Design matrix for environment
-        X_design = self.create_design_matrix_env(X, self.env_interactions)
-        X = self.scaler.transform(X_design)
+            # Design matrix for environment
+            X_design = self.create_design_matrix_env(X, self.env_interactions)
+            X = self.scaler.transform(X_design)
 
-        # Encode observations
-        obs_covs, _ = self.derive_obs_covariates(
-            X_obs, self.encoders["daytime_encoder"], self.encoders["protocol_encoder"]
-        )
+            # Encode observations
+            obs_covs, _ = self.derive_obs_covariates(
+                X_obs,
+                self.encoders["daytime_encoder"],
+                self.encoders["protocol_encoder"],
+            )
 
-        n_s = len(self.species_names)
+            n_s = len(self.species_names)
 
-        _, constraints = create_shapes_and_constraints(
-            len(self.encoders["protocol_encoder"].classes_),
-            n_s,
-            X.shape[1],
-            len(self.encoders["daytime_encoder"].classes_),
-        )
+            _, constraints = create_shapes_and_constraints(
+                len(self.encoders["protocol_encoder"].classes_),
+                n_s,
+                X.shape[1],
+                len(self.encoders["daytime_encoder"].classes_),
+            )
 
-        def fun_to_evaluate(theta):
+            def fun_to_evaluate(theta):
 
-            env_logits = calculate_env_logits(theta, X)
-            obs_logits = calculate_obs_logits(theta, n_s, obs_covs)
+                env_logits = calculate_env_logits(theta, X)
+                obs_logits = calculate_obs_logits(theta, n_s, obs_covs)
 
-            log_prob_pres = log_sigmoid(env_logits)
-            log_prob_obs_if_pres = log_sigmoid(obs_logits)
+                log_prob_pres = log_sigmoid(env_logits)
+                log_prob_obs_if_pres = log_sigmoid(obs_logits)
 
-            return jnp.exp(log_prob_pres + log_prob_obs_if_pres)
+                return jnp.exp(log_prob_pres + log_prob_obs_if_pres)
 
-        draws = get_posterior_draws(
-            self.fit_result["free_means"],
-            self.fit_result["free_sds"],
-            constraints,
-            fun_to_apply=fun_to_evaluate,
-        ).mean(axis=0)
+            draws = get_posterior_draws(
+                self.fit_result["free_means"],
+                self.fit_result["free_sds"],
+                constraints,
+                fun_to_apply=fun_to_evaluate,
+            ).mean(axis=0)
 
-        return draws
+            return draws
+
+        all_preds = list()
+
+        indices = np.arange(X.shape[0])
+
+        for cur_indices in split_every(100, indices):
+            cur_indices = list(cur_indices)
+            cur_X = X.iloc[cur_indices]
+            cur_X_obs = X_obs.iloc[cur_indices]
+            cur_preds = predict(cur_X, cur_X_obs)
+            all_preds.append(cur_preds)
+
+        all_preds = np.concatenate(all_preds, axis=0)
+
+        return pd.DataFrame(all_preds, columns=self.species_names)
 
     def save_model(self, target_folder: str) -> None:
 

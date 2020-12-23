@@ -37,13 +37,13 @@ for cur_model_name, model in models.items():
     model.fit(
         X_env=train_covs,
         X_checklist=train_set.X_obs,
-        y_checklist=train_set.y_obs.iloc[:, :32],
+        y_checklist=train_set.y_obs.iloc[:, :16],
         checklist_cell_ids=train_set.env_cell_ids,
     )
     runtime = time.time() - start_time
 
     # Evaluate on test set
-    rel_y = test_y.iloc[:, 4:6]
+    rel_y = test_y.iloc[:, :16]
     rel_covs = test_covs.loc[test_cell_ids]
 
     cur_target_dir = target_dir + cur_model_name + "/"
@@ -51,5 +51,7 @@ for cur_model_name, model in models.items():
 
     pred_obs_prob = model.predict_marginal_probabilities_obs(rel_covs, test_set.X_obs)
     pred_obs_prob.to_csv(os.path.join(cur_target_dir, "obs_preds.csv"))
+
+    rel_y.to_csv(os.path.join(cur_target_dir, "y_t.csv"))
 
     print(runtime, file=open(cur_target_dir + "runtime.txt", "w"))
