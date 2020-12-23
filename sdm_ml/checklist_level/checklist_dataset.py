@@ -110,6 +110,7 @@ def get_arrays_for_fitting(
         "numeric_checklist_cell_ids": encoder.transform(
             checklist_data.train_checklist_data.cell_id
         ),
+        "cell_encoder": encoder,
     }
 
 

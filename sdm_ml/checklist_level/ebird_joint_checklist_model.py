@@ -158,7 +158,7 @@ class EBirdJointChecklistModel(ChecklistModel):
 
     def predict_log_marginal_probabilities(self, X: pd.DataFrame) -> np.ndarray:
 
-        X_design = self.create_design_matrix_env(X)
+        X_design = self.create_design_matrix_env(X, self.env_interactions)
         X = self.scaler.transform(X_design)
 
         preds = predict_direct(self.fit_result, X, n_draws=self.n_pred_draws)

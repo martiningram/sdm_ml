@@ -5,6 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 from patsy import dmatrix
 from jax_advi.advi import get_pickleable_subset, optimize_advi_mean_field
+from jax_advi.advi import get_posterior_draws
 from ml_tools.utils import save_pickle_safely
 from os import makedirs
 from os.path import join
@@ -16,6 +17,7 @@ from jax import jit, vmap
 import jax.numpy as jnp
 from sdm_ml.checklist_level.likelihoods import compute_checklist_likelihood
 from .functional.hierarchical_checklist_model import predict_direct
+from jax.nn import log_sigmoid
 
 
 def create_shapes_and_constraints(n_protocols, n_s, n_env_covs, n_daytimes):
@@ -53,7 +55,7 @@ def create_shapes_and_constraints(n_protocols, n_s, n_env_covs, n_daytimes):
     return theta_shapes, theta_constraints
 
 
-def calculate_likelihood(theta, n_s, covs, obs_covs, cell_ids, y_pa):
+def calculate_obs_logits(theta, n_s, obs_covs):
 
     protocol_slope_additions = jnp.concatenate(
         [jnp.zeros((1, n_s)), theta["protocol_slope_additions"]]
@@ -67,8 +69,6 @@ def calculate_likelihood(theta, n_s, covs, obs_covs, cell_ids, y_pa):
         [jnp.zeros((1, n_s)), theta["daytime_intercept_additions"]]
     )
 
-    env_logits = covs @ theta["env_slopes"] + theta["env_intercepts"].reshape(1, -1)
-
     obs_logits = obs_covs["log_duration"].reshape(-1, 1) * (
         theta["duration_slopes"].reshape(1, -1)
         + protocol_slope_additions[obs_covs["protocol_ids"]]
@@ -77,6 +77,22 @@ def calculate_likelihood(theta, n_s, covs, obs_covs, cell_ids, y_pa):
         + protocol_intercept_additions[obs_covs["protocol_ids"]]
         + daytime_intercept_additions[obs_covs["daytime_ids"]]
     )
+
+    return obs_logits
+
+
+@jit
+def calculate_env_logits(theta, covs):
+
+    env_logits = covs @ theta["env_slopes"] + theta["env_intercepts"].reshape(1, -1)
+
+    return env_logits
+
+
+def calculate_likelihood(theta, n_s, covs, obs_covs, cell_ids, y_pa):
+
+    env_logits = calculate_env_logits(theta, covs)
+    obs_logits = calculate_obs_logits(theta, n_s, obs_covs)
 
     curried_lik = lambda cur_env_logit, cur_obs_logit, cur_y: compute_checklist_likelihood(
         cur_env_logit, cur_obs_logit, 1 - cur_y, cell_ids, max(cell_ids) + 1
@@ -122,12 +138,6 @@ def calculate_prior(theta):
         )
     )
 
-    # prior = prior + jnp.sum(
-    #     norm.logpdf(
-    #         theta["env_slopes"], 0.0, theta["env_slope_prior_sd"].reshape(-1, 1)
-    #     )
-    # )
-
     # N(0, 1) prior
     prior = prior + jnp.sum(norm.logpdf(theta["env_slopes"], 0.0, 1.0))
 
@@ -138,10 +148,6 @@ def calculate_prior(theta):
             theta["daytime_intercept_additions_sd"].reshape(-1, 1),
         )
     )
-
-    # Hyperpriors
-    # Env slopes: SD only
-    # prior = prior + norm.logpdf(theta["env_slope_prior_sd"])
 
     # Others: Mean and sd get N(0, 1)
     for cur_var in [
@@ -215,7 +221,7 @@ class EBirdJointChecklistModel(ChecklistModel):
         return X_checklist, y_full, X_env, cell_ids
 
     @staticmethod
-    def derive_obs_covariates(X_checklist):
+    def derive_obs_covariates(X_checklist, daytime_encoder=None, protocol_encoder=None):
 
         protocol_types = (
             X_checklist["protocol_type"]
@@ -241,11 +247,17 @@ class EBirdJointChecklistModel(ChecklistModel):
 
         log_duration = np.log(X_checklist["duration_minutes"].values)
 
-        daytime_encoder = LabelEncoder()
-        daytime_ids = daytime_encoder.fit_transform(time_of_day)
+        if daytime_encoder is None:
+            daytime_encoder = LabelEncoder()
+            daytime_ids = daytime_encoder.fit_transform(time_of_day)
+        else:
+            daytime_ids = daytime_encoder.transform(time_of_day)
 
-        protocol_encoder = LabelEncoder()
-        protocol_ids = protocol_encoder.fit_transform(protocol_types)
+        if protocol_encoder is None:
+            protocol_encoder = LabelEncoder()
+            protocol_ids = protocol_encoder.fit_transform(protocol_types)
+        else:
+            protocol_ids = protocol_encoder.transform(protocol_types)
 
         obs_covariates = {
             "daytime_ids": daytime_ids,
@@ -299,6 +311,8 @@ class EBirdJointChecklistModel(ChecklistModel):
         # Next, extract the checklist data we need
         obs_covs, encoders = self.derive_obs_covariates(X_checklist)
 
+        self.encoders = encoders
+
         # Create the design matrix for the environmental variables
         env_design_mat = self.create_design_matrix_env(X_env, self.env_interactions)
 
@@ -339,19 +353,55 @@ class EBirdJointChecklistModel(ChecklistModel):
             n_draws=None,
         )
 
-    def predict_log_marginal_probabilities(self, X: pd.DataFrame) -> np.ndarray:
+    def predict_marginal_probabilities_direct(self, X: pd.DataFrame) -> np.ndarray:
 
+        # Predict probability of direct observation
+        X_design = self.create_design_matrix_env(X, self.env_interactions)
+        X = self.scaler.transform(X_design)
+        direct_preds = predict_direct(self.fit_result, X, n_draws=self.n_pred_draws)
+
+        return direct_preds
+
+    def predict_marginal_probabilities_obs(
+        self, X: pd.DataFrame, X_obs: pd.DataFrame
+    ) -> np.ndarray:
+
+        # Design matrix for environment
         X_design = self.create_design_matrix_env(X, self.env_interactions)
         X = self.scaler.transform(X_design)
 
-        preds = predict_direct(self.fit_result, X, n_draws=self.n_pred_draws)
+        # Encode observations
+        obs_covs, _ = self.derive_obs_covariates(
+            X_obs, self.encoders["daytime_encoder"], self.encoders["protocol_encoder"]
+        )
 
-        log_preds = np.log(preds)
-        log_not_preds = np.log(1 - preds)
+        n_s = len(self.species_names)
 
-        combined = np.stack([log_not_preds, log_preds], axis=-1)
+        _, constraints = create_shapes_and_constraints(
+            len(self.encoders["protocol_encoder"].classes_),
+            n_s,
+            X.shape[1],
+            len(self.encoders["daytime_encoder"].classes_),
+        )
 
-        return combined
+        def fun_to_evaluate(theta):
+
+            env_logits = calculate_env_logits(theta, X)
+            obs_logits = calculate_obs_logits(theta, n_s, obs_covs)
+
+            log_prob_pres = log_sigmoid(env_logits)
+            log_prob_obs_if_pres = log_sigmoid(obs_logits)
+
+            return jnp.exp(log_prob_pres + log_prob_obs_if_pres)
+
+        draws = get_posterior_draws(
+            self.fit_result["free_means"],
+            self.fit_result["free_sds"],
+            constraints,
+            fun_to_apply=fun_to_evaluate,
+        ).mean(axis=0)
+
+        return draws
 
     def calculate_log_likelihood(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
 

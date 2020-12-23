@@ -30,7 +30,7 @@ def calculate_likelihood_single(
     env_logits = X_env @ cur_env_slopes + cur_env_intercept
 
     cur_lik = compute_checklist_likelihood(
-        env_logits, obs_logits, 1 - cur_y, cell_ids, max(cell_ids) + 1
+        env_logits, obs_logits, 1 - cur_y, cell_ids, env_logits.shape[0]
     )
 
     return jnp.sum(cur_lik)

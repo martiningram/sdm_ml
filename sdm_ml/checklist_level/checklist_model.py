@@ -4,7 +4,6 @@ from typing import Callable
 import pandas as pd
 
 
-# TODO: Should I allow for only a subset of checklists to have species ys?
 class ChecklistModel(ABC):
     @abstractmethod
     def fit(
@@ -35,34 +34,13 @@ class ChecklistModel(ABC):
         pass
 
     @abstractmethod
-    def predict_log_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
-        """ Predicts marginal probabilities using the ChecklistModel.
-
-        Args:
-            X: An NxM matrix, with N the number of prediction examples and M
-               the number of covariates.
-
-        Returns:
-            A numpy array of shape [N, K, 2] filled with marginal log
-            probabilities of absence and presence for each of the K species.
-        """
+    def predict_marginal_probabilities_direct(self, X: pd.DataFrame) -> np.ndarray:
         pass
 
     @abstractmethod
-    def calculate_log_likelihood(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
-        """ Calculates the log likelihood of the outcomes y given covariates X.
-
-        Args:
-            X: An NxM matrix with N the number of prediction examples and M
-               the number of covariates.
-            y: A binary NxK matrix, with N the number of training rows and K
-               the number of species considered. Entry [i, j] is 1 if species
-               j was observed at site i, and zero otherwise.
-
-        Returns:
-            A vector of length N containing the log likelihood of each site's
-            observations under the model.
-        """
+    def predict_marginal_probabilities_obs(
+        self, X: pd.DataFrame, X_obs: pd.DataFrame
+    ) -> np.ndarray:
         pass
 
     @abstractmethod
@@ -77,18 +55,3 @@ class ChecklistModel(ABC):
             path given.
         """
         pass
-
-    def predict_marginal_probabilities(self, X: np.ndarray) -> np.ndarray:
-        """A convenience function which predicts the marginal probabilities
-        of presence (not on the log scale).
-
-        Args:
-            X: The data to predict in an NxM matrix with N sites, M covariates.
-
-        Returns:
-            An array of size NxK, where K is the number of species.
-        """
-
-        log_probs = self.predict_log_marginal_probabilities(X)
-        presence_probs = np.exp(log_probs[..., 1])
-        return presence_probs
