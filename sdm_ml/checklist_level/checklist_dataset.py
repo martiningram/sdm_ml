@@ -10,108 +10,19 @@ from sklearn.preprocessing import LabelEncoder
 import os
 
 
-class ChecklistLevelData(NamedTuple):
+class ChecklistData(NamedTuple):
 
-    # This links each checklist to a cell
-    cell_id: np.ndarray
+    # Environmental covariates
+    X_env: pd.DataFrame
 
-    # The checklist id
-    checklist_id: np.ndarray
+    # Checklist data
+    X_obs: pd.DataFrame
 
-    # These are covariates recorded per checklist such as duration
-    observer_covariates: pd.DataFrame
+    # Presence/absence at checklist level
+    y_obs: pd.DataFrame
 
-    # The location
-    coords: pd.DataFrame
-
-    # Whatever else is recorded
-    other_info: pd.DataFrame
-    coord_code: int = 4326
-
-
-class SpeciesSightingData(NamedTuple):
-
-    species_name: str
-    was_observed: np.ndarray
-    checklist_id: np.ndarray
-    observation_count: np.ndarray = None
-
-
-class CellLevelData(NamedTuple):
-
-    cell_id: np.ndarray
-    cell_covariates: pd.DataFrame
-    cell_lat_lon: pd.DataFrame = None
-
-
-class ChecklistDataset(NamedTuple):
-
-    train_checklist_data: ChecklistLevelData
-    test_checklist_data: ChecklistLevelData
-
-    cell_data: CellLevelData
-    species_names: np.ndarray
-
-    # This is a callable because, for some datasets, it might be expensive to
-    # load all the (zero-filled) sightings at once.
-    get_species_data: Callable[[str], SpeciesSightingData]
-
-
-def get_arrays_for_fitting(
-    checklist_data: ChecklistDataset,
-    species_name: str,
-    drop_correlated_covariates=True,
-):
-
-    # Get sightings
-    species_data = checklist_data.get_species_data(species_name)
-
-    sightings_lookup = {
-        checklist_id: is_present
-        for checklist_id, is_present in zip(
-            species_data.checklist_id, species_data.was_observed
-        )
-    }
-
-    checklist_sightings = [
-        sightings_lookup.get(cur_cell_id, None)
-        for cur_cell_id in checklist_data.train_checklist_data.checklist_id
-    ]
-
-    checklist_cell_ids = checklist_data.train_checklist_data.cell_id
-
-    all_cell_ids = checklist_data.cell_data.cell_id
-    rel_cell_ids = set(all_cell_ids) & set(checklist_cell_ids)
-
-    assert len(set(checklist_cell_ids) - set(all_cell_ids)) == 0
-
-    is_relevant = [x in rel_cell_ids for x in all_cell_ids]
-    rel_covariates = checklist_data.cell_data.cell_covariates[is_relevant]
-    rel_cell_ids = checklist_data.cell_data.cell_id[is_relevant]
-
-    encoder = LabelEncoder()
-    numeric_cell_ids = encoder.fit_transform(rel_cell_ids)
-
-    # Ensure things are sorted
-    assert all(
-        numeric_cell_ids[i] <= numeric_cell_ids[i + 1]
-        for i in range(len(numeric_cell_ids) - 1)
-    ), "Numeric cell ids are not sorted."
-
-    if drop_correlated_covariates:
-        to_keep = remove_correlated_variables(rel_covariates)
-        rel_covariates = rel_covariates[to_keep]
-
-    return {
-        "checklist_data": checklist_data.train_checklist_data,
-        "env_covariates": rel_covariates,
-        "is_present": np.array(checklist_sightings),
-        "numeric_env_cell_ids": numeric_cell_ids,
-        "numeric_checklist_cell_ids": encoder.transform(
-            checklist_data.train_checklist_data.cell_id
-        ),
-        "cell_encoder": encoder,
-    }
+    # Environment cells to match the entries in X_obs
+    env_cell_ids: np.ndarray
 
 
 def load_ebird_dataset_using_env_var(
@@ -121,7 +32,7 @@ def load_ebird_dataset_using_env_var(
     ebird_dataset = load_ebird_dataset(
         join(os.environ["EBIRD_DATA_PATH"], "checklists_with_folds.csv"),
         join(os.environ["EBIRD_DATA_PATH"], "raster_cell_covs.csv"),
-        os.environ["EBIRD_SPECIES_DATA_PATH"],
+        join(os.environ["EBIRD_DATA_PATH"], "all_pa.csv"),
     )
 
     return ebird_dataset
@@ -130,111 +41,62 @@ def load_ebird_dataset_using_env_var(
 def load_ebird_dataset(
     ebird_checklist_file,
     covariates_file,
-    ebird_species_dir,
+    species_pa_file,
     train_folds=[1, 2, 3],
     test_folds=[4],
-    drop_nan_cells=True,
 ):
-    # The checklist file contains the checklist-level information; the species
-    # directory contains csvs, one for each bird.
+
     sampling_data = pd.read_csv(ebird_checklist_file, index_col=0)
-    species_files = glob(join(ebird_species_dir, "*.csv"))
-    species_names = np.array([base_name_from_path(x) for x in species_files])
+    species_pa_df = pd.read_csv(species_pa_file, index_col=0)
     covariates = pd.read_csv(covariates_file, index_col=0)
 
-    # NOTE: This is pretty crucial to ensure that the numerical labels later
-    # match up.
-    covariates = covariates.sort_values("cell").reset_index(drop=True)
-
-    assert drop_nan_cells, "Currently expects NaN cells to be dropped"
-
+    # Drop NaN cells and their checklists:
     nan_cells = covariates["cell"][covariates.isnull().any(axis=1)]
     covariates = covariates.dropna()
-
-    species_file_lookup = {x: y for x, y in zip(species_names, species_files)}
-
-    def get_species_data(species_name):
-
-        cur_file = species_file_lookup[species_name]
-        loaded = pd.read_csv(cur_file, index_col=0)
-
-        checklist_id = loaded["checklist_id"].values
-        was_observed = loaded["species_observed"].values
-        observation_count = loaded["observation_count"].values
-
-        return SpeciesSightingData(
-            species_name, was_observed, checklist_id, observation_count
-        )
-
-    def get_checklist_data(sampling_data, drop_bbs=True):
-
-        if drop_nan_cells:
-            sampling_data = sampling_data[~sampling_data["cell_id"].isin(nan_cells)]
-
-        if drop_bbs:
-            sampling_data = sampling_data[
-                ~sampling_data["locality"].str.contains("BBS")
-            ]
-
-        # Put together the checklist-level data
-        checklist_id = sampling_data["checklist_id"].values
-
-        observer_covariates = sampling_data[
-            [
-                "protocol_type",
-                "protocol_code",
-                "project_code",
-                "duration_minutes",
-                "effort_distance_km",
-                "effort_area_ha",
-                "number_observers",
-                "all_species_reported",
-                "observation_date",
-                "time_observations_started",
-                "observer_id",
-                "sampling_event_identifier",
-            ]
-        ]
-
-        other_info = sampling_data[
-            [x for x in sampling_data.columns if x not in observer_covariates.columns]
-        ]
-
-        lat_lon = sampling_data[["X", "Y"]]
-        coord_code = 3968
-
-        cell_id = sampling_data["cell_id"]
-
-        return ChecklistLevelData(
-            cell_id.values,
-            checklist_id,
-            observer_covariates,
-            lat_lon,
-            other_info,
-            coord_code,
-        )
-
-    train_sampling_data = sampling_data[sampling_data["fold_id"].isin(train_folds)]
-    test_sampling_data = sampling_data[sampling_data["fold_id"].isin(test_folds)]
-
-    train_checklist_data = get_checklist_data(train_sampling_data, drop_bbs=True)
-    test_checklist_data = get_checklist_data(test_sampling_data, drop_bbs=False)
-
-    cell_data = CellLevelData(
-        cell_id=covariates["cell"].values,
-        cell_covariates=covariates[
-            [x for x in covariates.columns if x not in ["cell", "x", "y"]]
-        ],
-        cell_lat_lon=covariates[["x", "y"]],
+    sampling_data = sampling_data[~sampling_data["cell_id"].isin(nan_cells)].set_index(
+        "checklist_id"
     )
 
-    return ChecklistDataset(
-        train_checklist_data=train_checklist_data,
-        test_checklist_data=test_checklist_data,
-        cell_data=cell_data,
-        species_names=species_names,
-        get_species_data=get_species_data,
+    # Encode the environment cells
+    encoder = LabelEncoder()
+    encoder.fit(covariates["cell"])
+
+    covariates["cell"] = encoder.transform(covariates["cell"])
+    covariates = covariates.sort_values("cell").set_index("cell")
+    sampling_data["cell_id"] = encoder.transform(sampling_data["cell_id"])
+    species_pa_df = species_pa_df.loc[sampling_data.index]
+
+    sampling_data = add_derived_covariates(sampling_data)
+
+    def split_data(sampling_data, pa_df, folds):
+
+        cur_relevant = sampling_data["fold_id"].isin(folds)
+        return sampling_data[cur_relevant], pa_df[cur_relevant]
+
+    train_checklists, train_y = split_data(sampling_data, species_pa_df, train_folds)
+    test_checklists, test_y = split_data(sampling_data, species_pa_df, test_folds)
+
+    # Ditch overly-correlated covariates
+    all_cov_names = [x for x in covariates.columns if "bio" in x]
+    other_names = [x for x in covariates.columns if x not in all_cov_names]
+    to_keep = list(remove_correlated_variables(covariates[all_cov_names])) + other_names
+    covariates = covariates[to_keep]
+
+    train_data = ChecklistData(
+        X_env=covariates,
+        X_obs=train_checklists,
+        y_obs=train_y,
+        env_cell_ids=train_checklists["cell_id"].values,
     )
+
+    test_data = ChecklistData(
+        X_env=covariates,
+        X_obs=test_checklists,
+        y_obs=test_y,
+        env_cell_ids=test_checklists["cell_id"].values,
+    )
+
+    return {"train": train_data, "test": test_data}
 
 
 def random_cell_subset(
@@ -286,3 +148,12 @@ def add_derived_covariates(ebird_obs_df):
     )
 
     return obs_covs
+
+
+if __name__ == "__main__":
+
+    ebird_dataset = load_ebird_dataset_using_env_var()
+
+    import ipdb
+
+    ipdb.set_trace()

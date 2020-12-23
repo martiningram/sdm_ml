@@ -8,29 +8,11 @@ class ChecklistModel(ABC):
     @abstractmethod
     def fit(
         self,
-        X_env_cell: pd.DataFrame,
-        X_checklist: Callable[[str], pd.DataFrame],
-        y_checklist: Callable[[str], np.ndarray],
-        checklist_cell_ids: Callable[[str], np.ndarray],
-        species_names: np.ndarray,
+        X_env: pd.DataFrame,
+        X_checklist: pd.DataFrame,
+        y_checklist: pd.DataFrame,
+        checklist_cell_ids: np.ndarray,
     ) -> None:
-        """Fits a ChecklistModel.
-
-        Args:
-            X_env_cell: An NxM matrix, with N the number of cells and M the
-                number of cell covariates. These are covariates assumed to drive
-                the presence or absence of the species.
-            X_checklist: An LxK matrix, with L the number of checklists and K
-                the number of checklist covariates. These are covariates
-                associated with each checklist such as duration.
-            y_checklist: A function which, given a species name, returns the
-                [zero-filled] presence or absence of that species for each of
-                the L checklists.
-            checklist_cell_ids: The cell ids for each of the checklists, so that
-                entry i in this array gives the location of the corresponding
-                covariates in X_env_cell.
-            species_names: The names of all species to fit.
-        """
         pass
 
     @abstractmethod

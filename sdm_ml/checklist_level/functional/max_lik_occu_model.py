@@ -94,6 +94,15 @@ def predict_env_logit(X_env, env_formula, env_coefs, scaler=None):
     return env_logit
 
 
+def predict_obs_logit(X_obs, obs_formula, obs_coefs):
+
+    obs_design_mat = np.asarray(dmatrix(obs_formula, X_obs))
+
+    obs_logit = obs_design_mat @ obs_coefs
+
+    return obs_logit
+
+
 def predict_env_prob(X_env, env_formula, env_coefs):
 
     env_logit = predict_env_logit(X_env, env_formula, env_coefs)

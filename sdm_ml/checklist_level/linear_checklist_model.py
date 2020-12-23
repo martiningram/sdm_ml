@@ -10,7 +10,7 @@ from jax.nn import log_sigmoid
 import os
 from typing import Callable
 import pickle
-from .functional.max_lik_occu_model import fit, predict_env_logit
+from .functional.max_lik_occu_model import fit, predict_env_logit, predict_obs_logit
 from ml_tools.patsy import create_formula
 
 
@@ -24,27 +24,24 @@ class LinearChecklistModel(ChecklistModel):
 
     def fit(
         self,
-        X_env_cell: pd.DataFrame,
-        X_checklist: Callable[[str], pd.DataFrame],
-        y_checklist: Callable[[str], np.ndarray],
-        checklist_cell_ids: Callable[[str], np.ndarray],
-        species_names: np.ndarray,
+        X_env: pd.DataFrame,
+        X_checklist: pd.DataFrame,
+        y_checklist: pd.DataFrame,
+        checklist_cell_ids: np.ndarray,
     ) -> None:
 
         self.fit_results = list()
-        self.species_names = species_names
+        self.species_names = y_checklist.columns
 
-        for cur_species in tqdm(species_names):
+        for cur_species in tqdm(self.species_names):
 
-            cur_X_checklist = X_checklist(cur_species)
-            cur_y_checklist = y_checklist(cur_species)
-            cur_cell_ids = checklist_cell_ids(cur_species)
+            cur_y_checklist = y_checklist[cur_species].values
 
             fit_result = fit(
-                X_env_cell,
-                cur_X_checklist,
+                X_env,
+                X_checklist,
                 cur_y_checklist,
-                cur_cell_ids,
+                checklist_cell_ids,
                 self.env_formula,
                 self.det_formula,
                 scale_env_data=True,
@@ -52,7 +49,7 @@ class LinearChecklistModel(ChecklistModel):
 
             self.fit_results.append(fit_result)
 
-    def predict_log_marginal_probabilities(self, X: pd.DataFrame) -> np.ndarray:
+    def predict_marginal_probabilities_direct(self, X: pd.DataFrame) -> np.ndarray:
 
         predictions = list()
 
@@ -67,22 +64,40 @@ class LinearChecklistModel(ChecklistModel):
                 cur_fit_result["env_scaler"],
             )
 
-            cur_log_prob_pres = log_sigmoid(cur_prediction)
-            cur_log_prob_abs = log_sigmoid(-cur_prediction)
-
-            predictions.append(np.stack([cur_log_prob_abs, cur_log_prob_pres], axis=1))
+            cur_prob_pres = sigmoid(cur_prediction)
+            predictions.append(cur_prob_pres)
 
         predictions = np.stack(predictions, axis=1)
 
-        return predictions
+        return pd.DataFrame(predictions, columns=self.species_names)
 
-    def calculate_log_likelihood(self, X: pd.DataFrame, y: np.ndarray) -> np.ndarray:
+    def predict_marginal_probabilities_obs(self, X: pd.DataFrame, X_obs: pd.DataFrame):
 
-        predictions = self.predict_log_marginal_probabilities(X)
+        predictions = list()
 
-        point_wise = y * predictions[..., 1] + (1 - y) * predictions[..., 0]
+        for cur_species_name, cur_fit_result in zip(
+            self.species_names, self.fit_results
+        ):
 
-        return np.sum(point_wise, axis=1)
+            cur_env_prediction = predict_env_logit(
+                X,
+                self.env_formula,
+                cur_fit_result["env_coefs"],
+                cur_fit_result["env_scaler"],
+            )
+
+            cur_obs_prediction = predict_obs_logit(
+                X_obs, self.det_formula, cur_fit_result["obs_coefs"]
+            )
+
+            cur_log_prob_obs = log_sigmoid(cur_env_prediction) + log_sigmoid(
+                cur_obs_prediction
+            )
+            predictions.append(np.exp(cur_log_prob_obs))
+
+        predictions = np.stack(predictions, axis=1)
+
+        return pd.DataFrame(predictions, columns=self.species_names)
 
     def save_model(self, target_folder: str) -> None:
 
