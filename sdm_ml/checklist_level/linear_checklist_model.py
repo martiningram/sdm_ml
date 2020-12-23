@@ -6,7 +6,7 @@ from .likelihoods import compute_checklist_likelihood
 from functools import partial
 from tqdm import tqdm
 from sklearn.preprocessing import StandardScaler
-from jax.nn import log_sigmoid
+from jax.nn import log_sigmoid, sigmoid
 import os
 from typing import Callable
 import pickle

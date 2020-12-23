@@ -96,7 +96,7 @@ def calculate_likelihood(theta, n_s, covs, obs_covs, cell_ids, y_pa):
     obs_logits = calculate_obs_logits(theta, n_s, obs_covs)
 
     curried_lik = lambda cur_env_logit, cur_obs_logit, cur_y: compute_checklist_likelihood(
-        cur_env_logit, cur_obs_logit, 1 - cur_y, cell_ids, max(cell_ids) + 1
+        cur_env_logit, cur_obs_logit, 1 - cur_y, cell_ids, env_logits.shape[0]
     )
 
     lik = vmap(curried_lik)(env_logits.T, obs_logits.T, y_pa.T)
