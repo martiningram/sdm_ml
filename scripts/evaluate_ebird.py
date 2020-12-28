@@ -15,10 +15,14 @@ bio_covs = [x for x in train_set.X_env.columns if "bio" in x]
 train_covs = train_set.X_env[bio_covs]
 
 subset_size = int(1e5)
+min_presences = 5
 
 # Make a subset of the training checklists
 np.random.seed(2)
 choice = np.random.choice(train_set.X_obs.shape[0], size=int(1e5), replace=False)
+
+species_counts = train_set.y_obs.iloc[choice].sum()
+species_subset = species_counts[species_counts >= min_presences].index
 
 test_set = ebird_dataset["test"]
 test_covs = test_set.X_env[bio_covs]
@@ -39,17 +43,20 @@ target_dir = "./evaluations/revamp/"
 
 for cur_model_name, model in models.items():
 
+    # TODO: Maybe it's worth subsetting so I can do the design matrix version?
+    # TODO: R package? Probably no.
+
     start_time = time.time()
     model.fit(
         X_env=train_covs,
         X_checklist=train_set.X_obs.iloc[choice],
-        y_checklist=train_set.y_obs.iloc[choice].iloc[:, 4:8],
+        y_checklist=train_set.y_obs[species_subset].iloc[choice],
         checklist_cell_ids=train_set.env_cell_ids[choice],
     )
     runtime = time.time() - start_time
 
     # Evaluate on test set
-    rel_y = test_y.iloc[:, 4:8]
+    rel_y = test_y[species_subset]
     rel_covs = test_covs.loc[test_cell_ids]
 
     cur_target_dir = target_dir + cur_model_name + "/"
@@ -62,5 +69,7 @@ for cur_model_name, model in models.items():
     pred_pres_prob.to_csv(os.path.join(cur_target_dir, "pres_preds.csv"))
 
     rel_y.to_csv(os.path.join(cur_target_dir, "y_t.csv"))
+
+    species_counts.to_csv(os.path.join(cur_target_dir, "species_counts.csv"))
 
     print(runtime, file=open(cur_target_dir + "runtime.txt", "w"))
