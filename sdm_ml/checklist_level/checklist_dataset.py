@@ -122,6 +122,31 @@ def random_cell_subset(
     return picked, checklist_mask, new_corresponding_cells
 
 
+def random_checklist_subset(
+    n_checklists, checklist_cell_ids, n_checklists_to_pick, seed=2
+):
+
+    np.random.seed(seed)
+
+    picked_checklists = np.random.choice(
+        n_checklists, size=n_checklists_to_pick, replace=False
+    )
+
+    picked_ids = checklist_cell_ids[picked_checklists]
+
+    cells_used = sorted(np.unique(picked_ids))
+
+    # Map from old to new
+    mapping = {x: i for i, x in enumerate(cells_used)}
+    new_ids = np.array([mapping[x] for x in picked_ids])
+
+    return {
+        "env_cell_indices": cells_used,
+        "checklist_cell_ids": new_ids,
+        "checklist_indices": picked_checklists,
+    }
+
+
 def add_derived_covariates(ebird_obs_df):
 
     obs_covs = ebird_obs_df
