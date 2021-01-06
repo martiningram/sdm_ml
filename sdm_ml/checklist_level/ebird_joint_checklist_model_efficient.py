@@ -18,7 +18,7 @@ import jax.numpy as jnp
 from sdm_ml.checklist_level.likelihoods import compute_checklist_likelihood
 from .functional.hierarchical_checklist_model import predict_direct
 from jax.nn import log_sigmoid, sigmoid
-from sdm_ml.checklist_level.utils import split_every
+from sdm_ml.checklist_level.utils import evaluate_on_chunks
 
 
 def create_shapes_and_constraints(n_protocols, n_s, n_env_covs, n_daytimes):
@@ -160,6 +160,9 @@ def calculate_prior(theta):
     ]:
         prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_mean"]))
         prior = prior + jnp.sum(norm.logpdf(theta[cur_var + "_sd"]))
+
+    # Weak prior on intercept
+    prior = prior + jnp.sum(norm.logpdf(theta["env_intercepts"], 0, 10))
 
     return prior
 
@@ -318,17 +321,19 @@ class EBirdJointChecklistModel(ChecklistModel):
             direct_preds = predict_direct(self.fit_result, X, n_draws=self.n_pred_draws)
             return direct_preds
 
-        all_preds = list()
+        # all_preds = list()
 
-        indices = np.arange(X.shape[0])
+        # indices = np.arange(X.shape[0])
 
-        for cur_indices in split_every(100, indices):
-            cur_indices = list(cur_indices)
-            cur_X = X.iloc[cur_indices]
-            cur_preds = predict(cur_X)
-            all_preds.append(cur_preds)
+        # for cur_indices in split_every(100, indices):
+        #     cur_indices = list(cur_indices)
+        #     cur_X = X.iloc[cur_indices]
+        #     cur_preds = predict(cur_X)
+        #     all_preds.append(cur_preds)
 
-        all_preds = np.concatenate(all_preds, axis=0)
+        # all_preds = np.concatenate(all_preds, axis=0)
+
+        all_preds = evaluate_on_chunks(predict, 100, X, is_df=True)
 
         return pd.DataFrame(all_preds, columns=self.species_names)
 
@@ -376,18 +381,20 @@ class EBirdJointChecklistModel(ChecklistModel):
 
             return draws
 
-        all_preds = list()
+        # all_preds = list()
 
-        indices = np.arange(X.shape[0])
+        # indices = np.arange(X.shape[0])
 
-        for cur_indices in split_every(100, indices):
-            cur_indices = list(cur_indices)
-            cur_X = X.iloc[cur_indices]
-            cur_X_obs = X_obs.iloc[cur_indices]
-            cur_preds = predict(cur_X, cur_X_obs)
-            all_preds.append(cur_preds)
+        # for cur_indices in split_every(100, indices):
+        #     cur_indices = list(cur_indices)
+        #     cur_X = X.iloc[cur_indices]
+        #     cur_X_obs = X_obs.iloc[cur_indices]
+        #     cur_preds = predict(cur_X, cur_X_obs)
+        #     all_preds.append(cur_preds)
 
-        all_preds = np.concatenate(all_preds, axis=0)
+        # all_preds = np.concatenate(all_preds, axis=0)
+
+        all_preds = evaluate_on_chunks(predict, 100, X, X_obs, is_df=True)
 
         return pd.DataFrame(all_preds, columns=self.species_names)
 

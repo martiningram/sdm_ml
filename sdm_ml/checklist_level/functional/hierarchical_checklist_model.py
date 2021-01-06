@@ -10,7 +10,6 @@ from functools import partial
 
 theta_constraints = {
     "obs_coef_prior_sds": constrain_positive,
-    # "env_slope_prior_sds": constrain_positive,
 }
 
 
@@ -68,19 +67,28 @@ def calculate_prior(theta):
         )
     )
 
-    # prior = prior + jnp.sum(
-    #     norm.logpdf(
-    #         theta["env_slopes"], 0.0, theta["env_slope_prior_sds"].reshape(-1, 1)
-    #     )
-    # )
-
     prior = prior + jnp.sum(norm.logpdf(theta["env_slopes"], 0.0, 1.0))
-
-    # prior = prior + jnp.sum(norm.logpdf(theta["env_slope_prior_sds"]))
     prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_means"]))
     prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_sds"]))
 
+    # TODO: I'll have to add a similar prior to the other versions of this model
+    # if I decide to keep it
+    prior = prior + jnp.sum(norm.logpdf(theta["env_intercepts"], 0.0, 10.0))
+
     return prior
+
+
+def initialise_shapes(n_env_covs, n_s, n_check_covs):
+
+    theta_shapes = {
+        "env_slopes": (n_env_covs, n_s),
+        "env_intercepts": (n_s,),
+        "obs_coefs": (n_check_covs, n_s),
+        "obs_coef_prior_means": (n_check_covs, 1),
+        "obs_coef_prior_sds": (n_check_covs, 1),
+    }
+
+    return theta_shapes
 
 
 def fit(
@@ -99,14 +107,7 @@ def fit(
     n_check_covs = X_checklist.shape[1]
 
     # Define shapes
-    theta_shapes = {
-        "env_slopes": (n_env_covs, n_s),
-        "env_intercepts": (n_s),
-        "obs_coefs": (n_check_covs, n_s),
-        "obs_coef_prior_means": (n_check_covs, 1),
-        "obs_coef_prior_sds": (n_check_covs, 1),
-        # "env_slope_prior_sds": (n_env_covs),
-    }
+    theta_shapes = initialise_shapes(n_env_covs, n_s, n_check_covs)
 
     # Curry and jit the likelihood
     lik_fun = jit(

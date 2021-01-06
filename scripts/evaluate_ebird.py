@@ -1,15 +1,21 @@
+import numpyro
+
+numpyro.set_platform("gpu")
 import os
+import time
 import numpy as np
-from sdm_ml.checklist_level.checklist_dataset import load_ebird_dataset_using_env_var
+from ml_tools.patsy import create_formula
+from sdm_ml.checklist_level.checklist_dataset import (
+    load_ebird_dataset_using_env_var,
+    random_checklist_subset,
+)
 from sdm_ml.checklist_level.ebird_joint_checklist_model_efficient import (
     EBirdJointChecklistModel,
 )
-from sdm_ml.checklist_level.ebird_joint_checklist_model_stan import (
-    EBirdJointChecklistModelStan,
+from sdm_ml.checklist_level.ebird_joint_checklist_model_numpyro import (
+    EBirdJointChecklistModelNumpyro,
 )
 from sdm_ml.checklist_level.linear_checklist_model import LinearChecklistModel
-from ml_tools.patsy import create_formula
-import time
 
 
 ebird_dataset = load_ebird_dataset_using_env_var()
@@ -17,14 +23,18 @@ train_set = ebird_dataset["train"]
 bio_covs = [x for x in train_set.X_env.columns if "bio" in x]
 train_covs = train_set.X_env[bio_covs]
 
-subset_size = int(1e3)
+subset_size = int(1000)
 min_presences = 5
-n_species = 8
+n_species = 32
+n_species = None
 
 # Make a subset of the training checklists
 np.random.seed(2)
-choice = np.random.choice(train_set.X_obs.shape[0], size=subset_size, replace=False)
+subsetting_result = random_checklist_subset(
+    train_set.X_obs.shape[0], train_set.env_cell_ids, subset_size
+)
 
+choice = subsetting_result["checklist_indices"]
 species_counts = train_set.y_obs.iloc[choice].sum()
 species_subset = species_counts[species_counts >= min_presences].index
 
@@ -38,39 +48,36 @@ test_covs = test_set.X_env[bio_covs]
 test_y = test_set.y_obs
 test_cell_ids = test_set.env_cell_ids
 
+# Check that all the required fields are present
+for cur_field in ["time_of_day", "protocol_type"]:
+    unique_test = test_set.X_obs[cur_field].unique()
+    unique_train = train_set.X_obs.iloc[choice][cur_field].unique()
+    print(cur_field, unique_test, unique_train)
+    assert set(unique_test) == set(unique_train)
+
 env_formula = create_formula(
     bio_covs, main_effects=True, quadratic_effects=True, interactions=False,
 )
 obs_formula = "protocol_type + protocol_type:log_duration + time_of_day + log_duration"
 
 models = {
-    "stan_checklist_model": EBirdJointChecklistModelStan(
-        "/home/martin/projects/sdm_ml/sdm_ml/checklist_level/stan/checklist_model.stan"
+    "checklist_model_numpyro": EBirdJointChecklistModelNumpyro(
+        env_formula, obs_formula, n_draws=1000, n_tune=5000, thinning=4
     ),
-    "checklist_model_vi": EBirdJointChecklistModel(M=15, env_interactions=False),
+    "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
     "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 
-target_dir = "./evaluations/stan_tests/"
+target_dir = "./evaluations/numpyro_comparison_rerun/"
 
 for cur_model_name, model in models.items():
 
-    # Subset properly
-    # TODO: Make sure this subsetting routine is correct. Write a test.
-    checklist_cell_ids = train_set.env_cell_ids[choice]
-    cells_used = sorted(np.unique(checklist_cell_ids))
-    train_cov_subset = train_covs.iloc[cells_used]
-    new_cell_ids = np.arange(len(cells_used))
-
-    mapping = {x: y for x, y in zip(cells_used, new_cell_ids)}
-    cell_id_subset = np.array([mapping[x] for x in checklist_cell_ids])
-
     start_time = time.time()
     model.fit(
-        X_env=train_cov_subset,
+        X_env=train_covs.iloc[subsetting_result["env_cell_indices"]],
         X_checklist=train_set.X_obs.iloc[choice],
         y_checklist=train_set.y_obs[species_subset].iloc[choice],
-        checklist_cell_ids=cell_id_subset,
+        checklist_cell_ids=subsetting_result["checklist_cell_ids"],
     )
     runtime = time.time() - start_time
 
