@@ -23,9 +23,9 @@ train_set = ebird_dataset["train"]
 bio_covs = [x for x in train_set.X_env.columns if "bio" in x]
 train_covs = train_set.X_env[bio_covs]
 
-subset_size = int(1000)
+subset_size = int(20000)
 min_presences = 5
-n_species = 32
+# n_species = 32
 n_species = None
 
 # Make a subset of the training checklists
@@ -62,22 +62,34 @@ obs_formula = "protocol_type + protocol_type:log_duration + time_of_day + log_du
 
 models = {
     "checklist_model_numpyro": EBirdJointChecklistModelNumpyro(
-        env_formula, obs_formula, n_draws=1000, n_tune=5000, thinning=4
+        env_formula, obs_formula, n_draws=1000, n_tune=1000, thinning=4
     ),
     "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
     "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 
-target_dir = "./evaluations/numpyro_comparison_rerun/"
+target_dir = "./evaluations/numpyro_comparison_rerun_20k/"
 
 for cur_model_name, model in models.items():
 
+    X_env = train_covs.iloc[subsetting_result["env_cell_indices"]]
+    X_checklist = train_set.X_obs.iloc[choice][
+        ["protocol_type", "log_duration", "time_of_day"]
+    ]
+    y_checklist = train_set.y_obs[species_subset].iloc[choice]
+    checklist_cell_ids = subsetting_result["checklist_cell_ids"]
+
+    assert not np.any(X_env.isnull().values)
+    assert not np.any(X_checklist.isnull().values)
+    assert not np.any(y_checklist.isnull().values)
+    assert not np.any(np.isnan(checklist_cell_ids))
+
     start_time = time.time()
     model.fit(
-        X_env=train_covs.iloc[subsetting_result["env_cell_indices"]],
-        X_checklist=train_set.X_obs.iloc[choice],
-        y_checklist=train_set.y_obs[species_subset].iloc[choice],
-        checklist_cell_ids=subsetting_result["checklist_cell_ids"],
+        X_env=X_env,
+        X_checklist=X_checklist,
+        y_checklist=y_checklist,
+        checklist_cell_ids=checklist_cell_ids,
     )
     runtime = time.time() - start_time
 

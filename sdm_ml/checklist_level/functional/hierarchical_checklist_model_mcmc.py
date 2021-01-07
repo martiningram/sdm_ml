@@ -14,6 +14,43 @@ from sdm_ml.checklist_level.utils import evaluate_on_chunks
 from jax.nn import log_sigmoid, sigmoid
 import pandas as pd
 import jax.numpy as jnp
+from jax.scipy.stats import norm
+
+
+def calculate_prior_non_centered(theta):
+
+    # TODO: Is this OK? Do I need to add the logdet of the transformation?
+    prior = jnp.sum(norm.logpdf(theta["obs_coefs_raw"], 0.0, 1.0))
+
+    prior = prior + jnp.sum(norm.logpdf(theta["env_slopes"], 0.0, 1.0))
+    prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_means"]))
+    prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_sds"]))
+    prior = prior + jnp.sum(norm.logpdf(theta["env_intercepts"], 0.0, 10.0))
+
+    return prior
+
+
+def transform_non_centred(theta):
+
+    theta["obs_coefs"] = (
+        theta["obs_coefs_raw"] * theta["obs_coef_prior_sds"]
+        + theta["obs_coef_prior_means"]
+    )
+
+    return theta
+
+
+def initialise_shapes_non_centred(n_env_covs, n_s, n_check_covs):
+
+    theta_shapes = {
+        "env_slopes": (n_env_covs, n_s),
+        "env_intercepts": (n_s,),
+        "obs_coefs_raw": (n_check_covs, n_s),
+        "obs_coef_prior_means": (n_check_covs, 1),
+        "obs_coef_prior_sds": (n_check_covs, 1),
+    }
+
+    return theta_shapes
 
 
 def fit(
@@ -43,21 +80,21 @@ def fit(
     n_s = y_checklist.shape[1]
     n_check_covs = checklist_covs.shape[1]
 
-    shapes = initialise_shapes(n_env_covs, n_s, n_check_covs)
+    shapes = initialise_shapes_non_centred(n_env_covs, n_s, n_check_covs)
 
     lik_fun = jit(
-        partial(
+        lambda x: partial(
             calculate_likelihood,
             X_env=env_covs,
             X_checklist=checklist_covs,
             y_checklist=y_checklist.values,
             cell_ids=checklist_cell_ids,
-        )
+        )(transform_non_centred(x))
     )
 
     samples = sample_nuts(
         shapes,
-        calculate_prior,
+        jit(calculate_prior_non_centered),
         lik_fun,
         constrain_fun_dict=theta_constraints,
         draws=draws,
@@ -134,7 +171,11 @@ def predict_obs(X_env, X_obs, samples, design_info):
     obs_design_mat = build_design_matrices([design_info["obs"]], X_obs)[0]
     obs_covs = np.asarray(obs_design_mat)
 
-    obs_slope_samples = flatten_chains(samples.posterior["obs_coefs"].values)
+    transformed_samples = transform_non_centred(
+        {x: y.values for x, y in samples.posterior.items()}
+    )
+
+    obs_slope_samples = flatten_chains(transformed_samples["obs_coefs"])
 
     @jit
     def predict(X_env, X_obs):

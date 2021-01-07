@@ -24,46 +24,6 @@ class EBirdJointChecklistModel(ChecklistModel):
         self.env_interactions = env_interactions
 
     @staticmethod
-    def assemble_dataset(
-        X_env_cell, X_checklist_fun, y_checklist, checklist_cell_ids, species_names
-    ):
-
-        # Assemble the dataset
-        y_full = list()
-        cell_ids = None
-        X_checklist = None
-
-        print("Preparing data...")
-        for cur_species in tqdm(species_names):
-
-            cur_y = y_checklist(cur_species)
-            cur_cell_ids = checklist_cell_ids(cur_species)
-            y_full.append(cur_y)
-
-            if cell_ids is None:
-                cell_ids = cur_cell_ids
-            else:
-                assert np.all(cur_cell_ids == cell_ids)
-
-            cur_X_checklist = X_checklist_fun(cur_species)
-
-            if X_checklist is None:
-                X_checklist = cur_X_checklist
-            else:
-                assert np.all(
-                    X_checklist["sampling_event_identifier"].values
-                    == cur_X_checklist["sampling_event_identifier"].values
-                )
-
-        y_full = np.stack(y_full, axis=1)
-
-        # TODO: Is that right?
-        X_env = X_env_cell
-        print("Done.")
-
-        return X_checklist, y_full, X_env, cell_ids
-
-    @staticmethod
     def create_design_matrix_ebird_obs(X_checklist):
 
         protocol_types = (
@@ -124,18 +84,13 @@ class EBirdJointChecklistModel(ChecklistModel):
 
     def fit(
         self,
-        X_env_cell: pd.DataFrame,
-        X_checklist: Callable[[str], pd.DataFrame],
-        y_checklist: Callable[[str], np.ndarray],
-        checklist_cell_ids: Callable[[str], np.ndarray],
-        species_names: np.ndarray,
+        X_env: pd.DataFrame,
+        X_checklist: pd.DataFrame,
+        y_checklist: pd.DataFrame,
+        checklist_cell_ids: np.ndarray,
     ):
 
-        self.species_names = species_names
-
-        X_checklist, y_full, X_env, cell_ids = self.assemble_dataset(
-            X_env_cell, X_checklist, y_checklist, checklist_cell_ids, species_names
-        )
+        self.species_names = y_checklist.columns
 
         # Next, extract the checklist data we need
         obs_design_mat = self.create_design_matrix_ebird_obs(X_checklist)
@@ -161,28 +116,6 @@ class EBirdJointChecklistModel(ChecklistModel):
 
     def predict_marginal_probabilities_obs():
         pass
-
-    def predict_log_marginal_probabilities(self, X: pd.DataFrame) -> np.ndarray:
-
-        X_design = self.create_design_matrix_env(X, self.env_interactions)
-        X = self.scaler.transform(X_design)
-
-        preds = predict_direct(self.fit_result, X, n_draws=self.n_pred_draws)
-
-        log_preds = np.log(preds)
-        log_not_preds = np.log(1 - preds)
-
-        combined = np.stack([log_not_preds, log_preds], axis=-1)
-
-        return combined
-
-    def calculate_log_likelihood(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
-
-        predictions = self.predict_log_marginal_probabilities(X)
-
-        point_wise = y * predictions[..., 1] + (1 - y) * predictions[..., 0]
-
-        return np.sum(point_wise, axis=1)
 
     def save_model(self, target_folder: str) -> None:
 
