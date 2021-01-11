@@ -1,3 +1,6 @@
+from jax.config import config
+
+config.update("jax_enable_x64", True)
 import numpyro
 
 numpyro.set_platform("gpu")
@@ -23,7 +26,9 @@ train_set = ebird_dataset["train"]
 bio_covs = [x for x in train_set.X_env.columns if "bio" in x]
 train_covs = train_set.X_env[bio_covs]
 
-subset_size = int(20000)
+subset_size = int(50000)
+# subset_size = int(1000)
+# subset_size = train_set.X_obs.shape[0]
 min_presences = 5
 # n_species = 32
 n_species = None
@@ -68,13 +73,19 @@ models = {
     "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 
-target_dir = "./evaluations/numpyro_comparison_rerun_20k/"
+target_dir = "./evaluations/numpyro_comparison_rerun_1k_double/"
 
 for cur_model_name, model in models.items():
 
     X_env = train_covs.iloc[subsetting_result["env_cell_indices"]]
     X_checklist = train_set.X_obs.iloc[choice][
-        ["protocol_type", "log_duration", "time_of_day"]
+        [
+            "protocol_type",
+            "log_duration",
+            "time_of_day",
+            "time_observations_started",
+            "duration_minutes",
+        ]
     ]
     y_checklist = train_set.y_obs[species_subset].iloc[choice]
     checklist_cell_ids = subsetting_result["checklist_cell_ids"]
