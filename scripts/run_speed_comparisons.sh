@@ -1,4 +1,5 @@
 # TODO: Change prior!
+set -e
 
 # Run some comparisons
 # Floating point precision:
