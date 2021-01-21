@@ -95,8 +95,10 @@ def calculate_likelihood(theta, n_s, covs, obs_covs, cell_ids, y_pa):
     env_logits = calculate_env_logits(theta, covs)
     obs_logits = calculate_obs_logits(theta, n_s, obs_covs)
 
-    curried_lik = lambda cur_env_logit, cur_obs_logit, cur_y: compute_checklist_likelihood(
-        cur_env_logit, cur_obs_logit, 1 - cur_y, cell_ids, env_logits.shape[0]
+    curried_lik = (
+        lambda cur_env_logit, cur_obs_logit, cur_y: compute_checklist_likelihood(
+            cur_env_logit, cur_obs_logit, 1 - cur_y, cell_ids, env_logits.shape[0]
+        )
     )
 
     lik = vmap(curried_lik)(env_logits.T, obs_logits.T, y_pa.T)
@@ -187,29 +189,33 @@ class EBirdJointChecklistModel(ChecklistModel):
     @staticmethod
     def derive_obs_covariates(X_checklist, daytime_encoder=None, protocol_encoder=None):
 
-        protocol_types = (
-            X_checklist["protocol_type"]
-            .str.replace("Traveling - Property Specific", "Traveling")
-            .values
-        )
+        # protocol_types = (
+        #     X_checklist["protocol_type"]
+        #     .str.replace("Traveling - Property Specific", "Traveling")
+        #     .values
+        # )
 
-        hour_of_day = (
-            X_checklist["time_observations_started"]
-            .str.split(":")
-            .str.get(0)
-            .astype(int)
-        )
+        # hour_of_day = (
+        #     X_checklist["time_observations_started"]
+        #     .str.split(":")
+        #     .str.get(0)
+        #     .astype(int)
+        # )
 
-        time_of_day = np.select(
-            [
-                (hour_of_day >= 5) & (hour_of_day < 12),
-                (hour_of_day > 12) & (hour_of_day < 21),
-            ],
-            ["morning", "afternoon/evening"],
-            default="night",
-        )
+        # time_of_day = np.select(
+        #     [
+        #         (hour_of_day >= 5) & (hour_of_day < 12),
+        #         (hour_of_day > 12) & (hour_of_day < 21),
+        #     ],
+        #     ["morning", "afternoon/evening"],
+        #     default="night",
+        # )
 
-        log_duration = np.log(X_checklist["duration_minutes"].values)
+        # log_duration = np.log(X_checklist["duration_minutes"].values)
+
+        time_of_day = X_checklist["time_of_day"].values
+        protocol_types = X_checklist["protocol_type"].values
+        log_duration = X_checklist["log_duration"].values
 
         if daytime_encoder is None:
             daytime_encoder = LabelEncoder()

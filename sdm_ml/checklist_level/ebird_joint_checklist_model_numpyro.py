@@ -8,7 +8,15 @@ from os.path import join
 
 
 class EBirdJointChecklistModelNumpyro(ChecklistModel):
-    def __init__(self, env_formula, obs_formula, n_draws=1000, n_tune=1000, thinning=1):
+    def __init__(
+        self,
+        env_formula,
+        obs_formula,
+        n_draws=1000,
+        n_tune=1000,
+        thinning=1,
+        chain_method="vectorized",
+    ):
 
         self.scaler = None
         self.env_formula = env_formula
@@ -16,6 +24,7 @@ class EBirdJointChecklistModelNumpyro(ChecklistModel):
         self.n_draws = n_draws
         self.n_tune = n_tune
         self.thinning = thinning
+        self.chain_method = chain_method
 
     def fit(
         self,
@@ -36,6 +45,7 @@ class EBirdJointChecklistModelNumpyro(ChecklistModel):
             draws=self.n_draws,
             tune=self.n_tune,
             thinning=self.thinning,
+            chain_method=self.chain_method,
         )
 
     def predict_marginal_probabilities_direct(self, X: pd.DataFrame) -> pd.DataFrame:

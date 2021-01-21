@@ -26,7 +26,9 @@ class ChecklistData(NamedTuple):
 
 
 def load_ebird_dataset_using_env_var(
-    train_folds=[1, 2, 3], test_folds=[4], drop_nan_cells=True,
+    train_folds=[1, 2, 3],
+    test_folds=[4],
+    drop_nan_cells=True,
 ):
 
     ebird_dataset = load_ebird_dataset(
@@ -168,6 +170,13 @@ def add_derived_covariates(ebird_obs_df):
     )
 
     obs_covs["time_of_day"] = time_of_day
+    fine_str = (
+        ((hour_of_day // 3) * 3).astype(str)
+        + "-"
+        + ((hour_of_day // 3) * 3 + 3).astype(str)
+    )
+    obs_covs["time_of_day_fine"] = fine_str
+
     obs_covs["protocol_type"] = obs_covs["protocol_type"].str.replace(
         "Traveling - Property Specific", "Traveling"
     )

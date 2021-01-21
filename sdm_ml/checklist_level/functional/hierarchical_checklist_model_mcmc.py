@@ -1,4 +1,5 @@
 from ml_tools.numpyro_mcmc import sample_nuts
+from ml_tools.jax import half_normal_logpdf
 from sklearn.preprocessing import StandardScaler
 from patsy import dmatrix, build_design_matrices
 import numpy as np
@@ -24,7 +25,7 @@ def calculate_prior_non_centered(theta):
 
     prior = prior + jnp.sum(norm.logpdf(theta["env_slopes"], 0.0, 1.0))
     prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_means"]))
-    prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_sds"]))
+    prior = prior + jnp.sum(half_normal_logpdf(theta["obs_coef_prior_sds"], 1.0))
     prior = prior + jnp.sum(norm.logpdf(theta["env_intercepts"], 0.0, 10.0))
 
     return prior
@@ -64,6 +65,7 @@ def fit(
     draws=1000,
     tune=1000,
     thinning=1,
+    chain_method="vectorized",
 ):
 
     env_design_mat = dmatrix(env_formula, X_env)
@@ -100,6 +102,7 @@ def fit(
         draws=draws,
         tune=tune,
         thinning=thinning,
+        chain_method=chain_method,
     )
 
     design_info = {

@@ -1,9 +1,27 @@
-from jax.config import config
+import sys
 
-config.update("jax_enable_x64", True)
+assert sys.argv[1] in ["float", "double"]
+assert sys.argv[2] in ["gpu", "cpu"]
+
+use_double_precision = sys.argv[1] == "double"
+use_gpu = sys.argv[2] == "gpu"
+subset_size = int(sys.argv[3])
+min_presences = int(sys.argv[4])
+target_dir = sys.argv[5]
+
+if use_double_precision:
+    print("Using double precision")
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
+
 import numpyro
 
-numpyro.set_platform("gpu")
+if use_gpu:
+    numpyro.set_platform("gpu")
+else:
+    numpyro.set_host_device_count(4)
+
 import os
 import time
 import numpy as np
@@ -26,10 +44,10 @@ train_set = ebird_dataset["train"]
 bio_covs = [x for x in train_set.X_env.columns if "bio" in x]
 train_covs = train_set.X_env[bio_covs]
 
-subset_size = int(50000)
+# subset_size = int(1000)
 # subset_size = int(1000)
 # subset_size = train_set.X_obs.shape[0]
-min_presences = 5
+# min_presences = 5
 # n_species = 32
 n_species = None
 
@@ -61,34 +79,45 @@ for cur_field in ["time_of_day", "protocol_type"]:
     assert set(unique_test) == set(unique_train)
 
 env_formula = create_formula(
-    bio_covs, main_effects=True, quadratic_effects=True, interactions=False,
+    bio_covs,
+    main_effects=True,
+    quadratic_effects=True,
+    interactions=False,
 )
 obs_formula = "protocol_type + protocol_type:log_duration + time_of_day + log_duration"
 
+chain_method = "vectorized" if use_gpu else "parallel"
+suffix = "_gpu" if use_gpu else "_cpu"
+
 models = {
-    "checklist_model_numpyro": EBirdJointChecklistModelNumpyro(
-        env_formula, obs_formula, n_draws=1000, n_tune=1000, thinning=4
+    "checklist_model_numpyro"
+    + suffix: EBirdJointChecklistModelNumpyro(
+        env_formula,
+        obs_formula,
+        n_draws=1000,
+        n_tune=1000,
+        thinning=4,
+        chain_method=chain_method,
     ),
-    "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
-    "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
+    # "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
+    # "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 
-target_dir = "./evaluations/numpyro_comparison_rerun_1k_double/"
+os.makedirs(target_dir, exist_ok=True)
 
 for cur_model_name, model in models.items():
 
     X_env = train_covs.iloc[subsetting_result["env_cell_indices"]]
     X_checklist = train_set.X_obs.iloc[choice][
-        [
-            "protocol_type",
-            "log_duration",
-            "time_of_day",
-            "time_observations_started",
-            "duration_minutes",
-        ]
+        ["protocol_type", "log_duration", "time_of_day", "time_of_day_fine"]
     ]
     y_checklist = train_set.y_obs[species_subset].iloc[choice]
     checklist_cell_ids = subsetting_result["checklist_cell_ids"]
+
+    X_env.to_csv(os.path.join(target_dir, "X_env.csv"))
+    X_checklist.to_csv(os.path.join(target_dir, "X_checklist.csv"))
+    y_checklist.to_csv(os.path.join(target_dir, "y_checklist.csv"))
+    np.savez(os.path.join("cell_ids"), checklist_cell_ids)
 
     assert not np.any(X_env.isnull().values)
     assert not np.any(X_checklist.isnull().values)
@@ -110,6 +139,7 @@ for cur_model_name, model in models.items():
 
     cur_target_dir = target_dir + cur_model_name + "/"
     model.save_model(cur_target_dir)
+    print(runtime, file=open(cur_target_dir + "runtime.txt", "w"))
 
     pred_pres_prob = model.predict_marginal_probabilities_direct(train_covs)
     pred_pres_prob.to_csv(os.path.join(cur_target_dir, "pres_preds.csv"))
@@ -120,5 +150,3 @@ for cur_model_name, model in models.items():
     rel_y.to_csv(os.path.join(cur_target_dir, "y_t.csv"))
 
     species_counts.to_csv(os.path.join(cur_target_dir, "species_counts.csv"))
-
-    print(runtime, file=open(cur_target_dir + "runtime.txt", "w"))
