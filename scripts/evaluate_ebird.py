@@ -84,7 +84,9 @@ env_formula = create_formula(
     quadratic_effects=True,
     interactions=False,
 )
-obs_formula = "protocol_type + protocol_type:log_duration + time_of_day + log_duration"
+obs_formula = (
+    "protocol_type + protocol_type:log_duration_z + time_of_day + log_duration_z"
+)
 
 chain_method = "vectorized" if use_gpu else "parallel"
 suffix = "_gpu" if use_gpu else "_cpu"
@@ -113,6 +115,14 @@ for cur_model_name, model in models.items():
     ]
     y_checklist = train_set.y_obs[species_subset].iloc[choice]
     checklist_cell_ids = subsetting_result["checklist_cell_ids"]
+
+    # Standardise log duration
+    log_duration_mean = X_checklist["log_duration"].mean()
+    log_duration_std = X_checklist["log_duration"].std()
+
+    X_checklist["log_duration_z"] = (
+        X_checklist["log_duration"] - log_duration_mean
+    ) / log_duration_std
 
     X_env.to_csv(os.path.join(target_dir, "X_env.csv"))
     X_checklist.to_csv(os.path.join(target_dir, "X_checklist.csv"))
@@ -144,7 +154,12 @@ for cur_model_name, model in models.items():
     pred_pres_prob = model.predict_marginal_probabilities_direct(train_covs)
     pred_pres_prob.to_csv(os.path.join(cur_target_dir, "pres_preds.csv"))
 
-    pred_obs_prob = model.predict_marginal_probabilities_obs(rel_covs, test_set.X_obs)
+    X_obs_test = test_set.X_obs
+    X_obs_test["log_duration_z"] = (
+        X_obs_test["log_duration"] - log_duration_mean
+    ) / log_duration_std
+
+    pred_obs_prob = model.predict_marginal_probabilities_obs(rel_covs, X_obs_test)
     pred_obs_prob.to_csv(os.path.join(cur_target_dir, "obs_preds.csv"))
 
     rel_y.to_csv(os.path.join(cur_target_dir, "y_t.csv"))
