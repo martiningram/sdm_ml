@@ -5,8 +5,8 @@ from ml_tools.evaluation import multi_class_eval, auc_with_nan, log_loss_with_la
 from tqdm import tqdm
 
 
-base_dir = "../evaluations"
-all_pred_files = glob(base_dir + "/*/*/obs_preds.csv")
+base_dir = "./evaluations/test_standardised"
+all_pred_files = glob(base_dir + "/*/obs_preds.csv")
 
 for cur_pred_file in tqdm(all_pred_files):
 

@@ -33,6 +33,9 @@ from sdm_ml.checklist_level.checklist_dataset import (
 from sdm_ml.checklist_level.ebird_joint_checklist_model_efficient import (
     EBirdJointChecklistModel,
 )
+from sdm_ml.checklist_level.ebird_joint_checklist_model import (
+    EBirdJointChecklistModel as EBirdJointChecklistModelDesignMat,
+)
 from sdm_ml.checklist_level.ebird_joint_checklist_model_numpyro import (
     EBirdJointChecklistModelNumpyro,
 )
@@ -42,7 +45,7 @@ from sdm_ml.checklist_level.linear_checklist_model import LinearChecklistModel
 ebird_dataset = load_ebird_dataset_using_env_var()
 train_set = ebird_dataset["train"]
 bio_covs = [x for x in train_set.X_env.columns if "bio" in x]
-train_covs = train_set.X_env[bio_covs]
+train_covs = train_set.X_env
 
 # subset_size = int(1000)
 # subset_size = int(1000)
@@ -67,7 +70,7 @@ if n_species is not None:
     ]
 
 test_set = ebird_dataset["test"]
-test_covs = test_set.X_env[bio_covs]
+test_covs = test_set.X_env
 test_y = test_set.y_obs
 test_cell_ids = test_set.env_cell_ids
 
@@ -84,25 +87,39 @@ env_formula = create_formula(
     quadratic_effects=True,
     interactions=False,
 )
+
+# Add on the other ones
+to_add = [x for x in train_set.X_env.columns if "X" in x and x != "X" and x != "X12"]
+combined = "+".join(to_add)
+
+train_covs = train_covs[bio_covs + to_add]
+test_covs = test_covs[bio_covs + to_add]
+
+env_formula = env_formula + "+" + combined
+
+print(env_formula)
+
 obs_formula = (
-    "protocol_type + protocol_type:log_duration_z + time_of_day + log_duration_z"
+    "protocol_type + protocol_type:log_duration_z"
+    "+ time_of_day + log_duration_z + dominant_land_cover"
 )
 
 chain_method = "vectorized" if use_gpu else "parallel"
 suffix = "_gpu" if use_gpu else "_cpu"
 
 models = {
-    "checklist_model_numpyro"
-    + suffix: EBirdJointChecklistModelNumpyro(
-        env_formula,
-        obs_formula,
-        n_draws=1000,
-        n_tune=1000,
-        thinning=4,
-        chain_method=chain_method,
-    ),
+    # "checklist_model_numpyro"
+    # + suffix: EBirdJointChecklistModelNumpyro(
+    #     env_formula,
+    #     obs_formula,
+    #     n_draws=1000,
+    #     n_tune=1000,
+    #     thinning=4,
+    #     chain_method=chain_method,
+    # ),
     # "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
-    # "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
+    # "checklist_model_vi_design_mat": EBirdJointChecklistModelDesignMat(M=25, env_interactions=False),
+    "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 
 os.makedirs(target_dir, exist_ok=True)
@@ -111,7 +128,13 @@ for cur_model_name, model in models.items():
 
     X_env = train_covs.iloc[subsetting_result["env_cell_indices"]]
     X_checklist = train_set.X_obs.iloc[choice][
-        ["protocol_type", "log_duration", "time_of_day", "time_of_day_fine"]
+        [
+            "protocol_type",
+            "log_duration",
+            "time_of_day",
+            "time_of_day_fine",
+            "dominant_land_cover",
+        ]
     ]
     y_checklist = train_set.y_obs[species_subset].iloc[choice]
     checklist_cell_ids = subsetting_result["checklist_cell_ids"]

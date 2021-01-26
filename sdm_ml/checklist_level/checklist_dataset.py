@@ -181,6 +181,22 @@ def add_derived_covariates(ebird_obs_df):
         "Traveling - Property Specific", "Traveling"
     )
 
+    categories = {
+        "developed": [21, 22, 23, 24],
+        "forest": [41, 42, 43],
+        "water": [11],
+    }
+
+    obs_covs["dominant_land_cover"] = np.select(
+        [
+            np.isin(obs_covs["land_cover"].values, categories["developed"]),
+            np.isin(obs_covs["land_cover"].values, categories["forest"]),
+            np.isin(obs_covs["land_cover"].values, categories["water"]),
+        ],
+        ["developed", "forest", "water"],
+        default="other",
+    )
+
     return obs_covs
 
 
