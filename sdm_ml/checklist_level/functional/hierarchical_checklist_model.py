@@ -1,130 +1,78 @@
+import arviz as az
+import numpy as np
 from jax import jit, vmap
-from jax.scipy.stats import norm
-from jax_advi.constraints import constrain_positive
+from patsy import dmatrix, build_design_matrices
 import jax.numpy as jnp
-from sdm_ml.checklist_level.likelihoods import compute_checklist_likelihood
 from jax_advi.advi import optimize_advi_mean_field
 from jax_advi.advi import get_posterior_draws
 from jax.nn import sigmoid
 from functools import partial
-
-theta_constraints = {
-    "obs_coef_prior_sds": constrain_positive,
-}
-
-
-def calculate_likelihood_single(
-    X_checklist,
-    X_env,
-    cur_obs_coefs,
-    cur_env_slopes,
-    cur_env_intercept,
-    cur_y,
-    cell_ids,
-):
-
-    cell_ids = jnp.array(cell_ids)
-
-    obs_logits = X_checklist @ cur_obs_coefs
-    env_logits = X_env @ cur_env_slopes + cur_env_intercept
-
-    cur_lik = compute_checklist_likelihood(
-        env_logits, obs_logits, 1 - cur_y, cell_ids, env_logits.shape[0]
-    )
-
-    return jnp.sum(cur_lik)
-
-
-def calculate_likelihood(theta, X_env, X_checklist, y_checklist, cell_ids):
-
-    curried_lik = lambda cur_obs_coefs, cur_env_slopes, cur_env_intercept, cur_y: calculate_likelihood_single(
-        X_checklist,
-        X_env,
-        cur_obs_coefs,
-        cur_env_slopes,
-        cur_env_intercept,
-        cur_y,
-        cell_ids,
-    )
-
-    lik = vmap(curried_lik)(
-        theta["obs_coefs"].T,
-        theta["env_slopes"].T,
-        theta["env_intercepts"],
-        y_checklist.T,
-    )
-
-    return jnp.sum(lik)
-
-
-def calculate_prior(theta):
-
-    prior = jnp.sum(
-        norm.logpdf(
-            theta["obs_coefs"],
-            theta["obs_coef_prior_means"],
-            theta["obs_coef_prior_sds"],
-        )
-    )
-
-    prior = prior + jnp.sum(norm.logpdf(theta["env_slopes"], 0.0, 1.0))
-    prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_means"]))
-    prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_sds"]))
-
-    # TODO: I'll have to add a similar prior to the other versions of this model
-    # if I decide to keep it
-    prior = prior + jnp.sum(norm.logpdf(theta["env_intercepts"], 0.0, 10.0))
-
-    return prior
-
-
-def initialise_shapes(n_env_covs, n_s, n_check_covs):
-
-    theta_shapes = {
-        "env_slopes": (n_env_covs, n_s),
-        "env_intercepts": (n_s,),
-        "obs_coefs": (n_check_covs, n_s),
-        "obs_coef_prior_means": (n_check_covs, 1),
-        "obs_coef_prior_sds": (n_check_covs, 1),
-    }
-
-    return theta_shapes
+from .model import (
+    calculate_prior_non_centered,
+    transform_non_centred,
+    initialise_shapes_non_centred,
+    theta_constraints,
+    calculate_likelihood,
+)
+from .hierarchical_checklist_model_mcmc import predict_obs, predict_env
+from sklearn.preprocessing import StandardScaler
 
 
 def fit(
     X_env,
     X_checklist,
     y_checklist,
-    cell_ids,
+    checklist_cell_ids,
+    env_formula,
+    checklist_formula,
+    scale_env=True,
+    draws=1000,
     M=20,
     seed=3,
     verbose=True,
-    opt_method="trust-ncg",
+    # opt_method="trust-ncg",
+    opt_method="L-BFGS-B",
 ):
 
-    n_env_covs = X_env.shape[1]
+    # TODO: Currently this is the same as the MCMC version. If it stays that
+    # way, should probably abstract away some stuff.
+    env_design_mat = dmatrix(env_formula, X_env)
+    checklist_design_mat = dmatrix(checklist_formula, X_checklist)
+
+    env_covs = np.asarray(env_design_mat)
+    checklist_covs = np.asarray(checklist_design_mat)
+
+    if scale_env:
+        scaler = StandardScaler()
+        env_covs = scaler.fit_transform(env_covs)
+
+    n_env_covs = env_covs.shape[1]
     n_s = y_checklist.shape[1]
-    n_check_covs = X_checklist.shape[1]
+    n_check_covs = checklist_covs.shape[1]
 
-    # Define shapes
-    theta_shapes = initialise_shapes(n_env_covs, n_s, n_check_covs)
+    shapes = initialise_shapes_non_centred(n_env_covs, n_s, n_check_covs)
 
-    # Curry and jit the likelihood
     lik_fun = jit(
-        partial(
+        lambda x: partial(
             calculate_likelihood,
-            X_env=X_env,
-            X_checklist=X_checklist,
-            y_checklist=y_checklist,
-            cell_ids=cell_ids,
-        )
+            X_env=env_covs,
+            X_checklist=checklist_covs,
+            y_checklist=y_checklist.values,
+            cell_ids=checklist_cell_ids,
+        )(transform_non_centred(x))
     )
 
+    design_info = {
+        "env": env_design_mat.design_info,
+        "obs": checklist_design_mat.design_info,
+        "species_names": y_checklist.columns,
+    }
+
     result = optimize_advi_mean_field(
-        theta_shapes,
-        calculate_prior,
+        shapes,
+        jit(calculate_prior_non_centered),
         lik_fun,
-        n_draws=None,
+        n_draws=draws,
         verbose=verbose,
         M=M,
         constrain_fun_dict=theta_constraints,
@@ -132,23 +80,13 @@ def fit(
         opt_method=opt_method,
     )
 
-    return result
+    draws = result["draws"]
 
+    # Add a dimension "chain":
+    draws = {x: jnp.expand_dims(y, axis=0) for x, y in draws.items()}
+    az_trace = az.from_dict(posterior=draws)
 
-def predict_direct(fit_result, X_env, n_draws=100):
-    def pred_fun(theta, X_env):
+    if scale_env:
+        design_info["env_scaler"] = scaler
 
-        return sigmoid(X_env @ theta["env_slopes"] + theta["env_intercepts"])
-
-    prob_obs_direct = get_posterior_draws(
-        fit_result["free_means"],
-        fit_result["free_sds"],
-        {},
-        fun_to_apply=partial(pred_fun, X_env=X_env),
-        n_draws=n_draws,
-    ).mean(axis=0)
-
-    return prob_obs_direct
-
-
-# TODO: Add a function to predict observed prob
+    return az_trace, {x: y for x, y in result.items() if x != "draws"}, design_info

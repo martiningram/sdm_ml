@@ -2,7 +2,7 @@ set -e
 
 # Run some comparisons
 # Floating point precision:
-python scripts/evaluate_ebird.py float gpu 1000 0 ./evaluations/comparisons_new_covs/float_gpu_1000_0/
+python scripts/evaluate_ebird.py float gpu 100000 0 ./evaluations/comparisons_new_covs/float_gpu_100000_0/
 # python scripts/evaluate_ebird.py float gpu 2000 5 ./evaluations/comparisons/float_gpu_2000_5/
 # python scripts/evaluate_ebird.py float gpu 4000 5 ./evaluations/comparisons/float_gpu_4000_5/
 # python scripts/evaluate_ebird.py float gpu 8000 5 ./evaluations/comparisons/float_gpu_8000_5/

@@ -194,7 +194,7 @@ def add_derived_covariates(ebird_obs_df):
             np.isin(obs_covs["land_cover"].values, categories["water"]),
         ],
         ["developed", "forest", "water"],
-        default="other",
+        default="baseline",
     )
 
     return obs_covs

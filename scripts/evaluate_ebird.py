@@ -30,9 +30,10 @@ from sdm_ml.checklist_level.checklist_dataset import (
     load_ebird_dataset_using_env_var,
     random_checklist_subset,
 )
-from sdm_ml.checklist_level.ebird_joint_checklist_model_efficient import (
-    EBirdJointChecklistModel,
-)
+
+# from sdm_ml.checklist_level.ebird_joint_checklist_model_efficient import (
+#     EBirdJointChecklistModel,
+# )
 from sdm_ml.checklist_level.ebird_joint_checklist_model import (
     EBirdJointChecklistModel as EBirdJointChecklistModelDesignMat,
 )
@@ -118,8 +119,10 @@ models = {
     #     chain_method=chain_method,
     # ),
     # "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
-    # "checklist_model_vi_design_mat": EBirdJointChecklistModelDesignMat(M=25, env_interactions=False),
-    "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
+    "checklist_model_vi_design_mat": EBirdJointChecklistModelDesignMat(
+        env_formula=env_formula, obs_formula=obs_formula, M=8
+    ),
+    # "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 
 os.makedirs(target_dir, exist_ok=True)

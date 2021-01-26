@@ -1,13 +1,13 @@
 from ml_tools.numpyro_mcmc import sample_nuts
-from ml_tools.jax import half_normal_logpdf
 from sklearn.preprocessing import StandardScaler
 from patsy import dmatrix, build_design_matrices
 import numpy as np
-from .hierarchical_checklist_model import (
-    initialise_shapes,
-    calculate_prior,
+from .model import (
     calculate_likelihood,
     theta_constraints,
+    calculate_prior_non_centered,
+    transform_non_centred,
+    initialise_shapes_non_centred,
 )
 from functools import partial
 from jax import jit
@@ -16,42 +16,6 @@ from jax.nn import log_sigmoid, sigmoid
 import pandas as pd
 import jax.numpy as jnp
 from jax.scipy.stats import norm
-
-
-def calculate_prior_non_centered(theta):
-
-    # TODO: Is this OK? Do I need to add the logdet of the transformation?
-    prior = jnp.sum(norm.logpdf(theta["obs_coefs_raw"], 0.0, 1.0))
-
-    prior = prior + jnp.sum(norm.logpdf(theta["env_slopes"], 0.0, 1.0))
-    prior = prior + jnp.sum(norm.logpdf(theta["obs_coef_prior_means"]))
-    prior = prior + jnp.sum(half_normal_logpdf(theta["obs_coef_prior_sds"], 1.0))
-    prior = prior + jnp.sum(norm.logpdf(theta["env_intercepts"], 0.0, 10.0))
-
-    return prior
-
-
-def transform_non_centred(theta):
-
-    theta["obs_coefs"] = (
-        theta["obs_coefs_raw"] * theta["obs_coef_prior_sds"]
-        + theta["obs_coef_prior_means"]
-    )
-
-    return theta
-
-
-def initialise_shapes_non_centred(n_env_covs, n_s, n_check_covs):
-
-    theta_shapes = {
-        "env_slopes": (n_env_covs, n_s),
-        "env_intercepts": (n_s,),
-        "obs_coefs_raw": (n_check_covs, n_s),
-        "obs_coef_prior_means": (n_check_covs, 1),
-        "obs_coef_prior_sds": (n_check_covs, 1),
-    }
-
-    return theta_shapes
 
 
 def fit(
