@@ -197,6 +197,41 @@ def add_derived_covariates(ebird_obs_df):
         default="baseline",
     )
 
+    cond_list = [
+        # Pre-sunrise (i.e. dawn)
+        (~obs_covs["is_up"]) & (obs_covs["time_to_next_sunrise"] <= 1),
+        # Post-sunset (i.e. dusk)
+        (~obs_covs["is_up"]) & (obs_covs["time_from_last_sunset"] <= 1),
+        # Early morning
+        (obs_covs["is_up"]) & (obs_covs["time_from_last_sunrise"] <= 3),
+        # Evening
+        (obs_covs["is_up"]) & (obs_covs["time_to_next_sunset"] <= 3),
+        # Night-time
+        (~obs_covs["is_up"])
+        & (obs_covs["time_to_next_sunrise"] > 1)
+        & (obs_covs["time_from_last_sunset"] > 1),
+        # Pre-evening
+        (obs_covs["is_up"])
+        & (obs_covs["time_to_next_sunset"] > 3)
+        & (obs_covs["time_to_next_sunset"] <= 6),
+        # Post-morning
+        (obs_covs["is_up"])
+        & (obs_covs["time_from_last_sunrise"] > 3)
+        & (obs_covs["time_from_last_sunrise"] <= 6),
+    ]
+
+    val_list = [
+        "dawn",
+        "dusk",
+        "early-morning",
+        "late-evening",
+        "night",
+        "early-evening",
+        "late-morning",
+    ]
+
+    obs_covs["daytimes_alt"] = np.select(cond_list, val_list, default="mid-day")
+
     return obs_covs
 
 

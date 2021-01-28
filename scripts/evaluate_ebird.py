@@ -96,14 +96,11 @@ combined = "+".join(to_add)
 train_covs = train_covs[bio_covs + to_add]
 test_covs = test_covs[bio_covs + to_add]
 
-env_formula = env_formula + "+" + combined
+# env_formula = env_formula + "+" + combined
 
 print(env_formula)
 
-obs_formula = (
-    "protocol_type + protocol_type:log_duration_z"
-    "+ time_of_day + log_duration_z + dominant_land_cover"
-)
+obs_formula = "protocol_type + daytimes_alt + log_duration_z + dominant_land_cover"
 
 chain_method = "vectorized" if use_gpu else "parallel"
 suffix = "_gpu" if use_gpu else "_cpu"
@@ -120,7 +117,7 @@ models = {
     # ),
     # "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
     "checklist_model_vi_design_mat": EBirdJointChecklistModelDesignMat(
-        env_formula=env_formula, obs_formula=obs_formula, M=8
+        env_formula=env_formula, obs_formula=obs_formula, M=10
     ),
     # "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
@@ -135,8 +132,8 @@ for cur_model_name, model in models.items():
             "protocol_type",
             "log_duration",
             "time_of_day",
-            "time_of_day_fine",
             "dominant_land_cover",
+            "daytimes_alt",
         ]
     ]
     y_checklist = train_set.y_obs[species_subset].iloc[choice]

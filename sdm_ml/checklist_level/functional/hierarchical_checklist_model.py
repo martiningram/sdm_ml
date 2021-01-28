@@ -13,6 +13,7 @@ from .model import (
     initialise_shapes_non_centred,
     theta_constraints,
     calculate_likelihood,
+    calculate_likelihood_for_loop,
 )
 from .hierarchical_checklist_model_mcmc import predict_obs, predict_env
 from sklearn.preprocessing import StandardScaler
@@ -30,8 +31,8 @@ def fit(
     M=20,
     seed=3,
     verbose=True,
-    # opt_method="trust-ncg",
-    opt_method="L-BFGS-B",
+    opt_method="trust-krylov",
+    # opt_method="L-BFGS-B",
 ):
 
     # TODO: Currently this is the same as the MCMC version. If it stays that
@@ -54,7 +55,7 @@ def fit(
 
     lik_fun = jit(
         lambda x: partial(
-            calculate_likelihood,
+            calculate_likelihood_for_loop,
             X_env=env_covs,
             X_checklist=checklist_covs,
             y_checklist=y_checklist.values,
