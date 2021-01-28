@@ -67,6 +67,7 @@ def fit(
         tune=tune,
         thinning=thinning,
         chain_method=chain_method,
+        use_tfp=False,
     )
 
     design_info = {

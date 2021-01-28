@@ -106,19 +106,19 @@ chain_method = "vectorized" if use_gpu else "parallel"
 suffix = "_gpu" if use_gpu else "_cpu"
 
 models = {
-    # "checklist_model_numpyro"
-    # + suffix: EBirdJointChecklistModelNumpyro(
-    #     env_formula,
-    #     obs_formula,
-    #     n_draws=1000,
-    #     n_tune=1000,
-    #     thinning=4,
-    #     chain_method=chain_method,
-    # ),
-    # "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
-    "checklist_model_vi_design_mat": EBirdJointChecklistModelDesignMat(
-        env_formula=env_formula, obs_formula=obs_formula, M=10
+    "checklist_model_numpyro"
+    + suffix: EBirdJointChecklistModelNumpyro(
+        env_formula,
+        obs_formula,
+        n_draws=100,
+        n_tune=100,
+        thinning=1,
+        chain_method=chain_method,
     ),
+    # "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
+    # "checklist_model_vi_design_mat": EBirdJointChecklistModelDesignMat(
+    #     env_formula=env_formula, obs_formula=obs_formula, M=10
+    # ),
     # "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 

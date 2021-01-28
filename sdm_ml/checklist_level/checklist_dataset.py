@@ -59,6 +59,8 @@ def load_ebird_dataset(
         "checklist_id"
     )
 
+    covariates = add_derived_covariates_env(covariates)
+
     # Encode the environment cells
     encoder = LabelEncoder()
     encoder.fit(covariates["cell"])
@@ -147,6 +149,24 @@ def random_checklist_subset(
         "checklist_cell_ids": new_ids,
         "checklist_indices": picked_checklists,
     }
+
+
+def add_derived_covariates_env(X_env):
+
+    land_covers = X_env[[x for x in X_env.columns if "X" in x and x != "X"]]
+
+    dominant_covers = land_covers.idxmax(axis=1)
+
+    named_dominant = dominant_covers.replace(land_cover_lookup)
+
+    coarse_dominant = named_dominant.copy()
+    coarse_dominant[coarse_dominant.str.contains("Developed")] = "Developed"
+    coarse_dominant[coarse_dominant.str.contains("Wetlands")] = "Wetlands"
+    coarse_dominant[coarse_dominant.isin(["Unknown", "Barren Land"])] = "Other"
+
+    X_env["dominant_cover"] = coarse_dominant
+
+    return X_env
 
 
 def add_derived_covariates(ebird_obs_df):
