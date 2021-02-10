@@ -16,6 +16,7 @@ from jax.nn import log_sigmoid, sigmoid
 import pandas as pd
 import jax.numpy as jnp
 from jax.scipy.stats import norm
+from .utils import predict_env_from_samples, predict_obs_from_samples
 
 
 def fit(
@@ -110,18 +111,7 @@ def predict_env(X_env, samples, design_info):
 
     env_slope_samples, env_intercept_samples = fetch_env_samples(samples)
 
-    @jit
-    def predict(X):
-
-        logits = jnp.einsum(
-            "nc,dcs->dns", X, env_slope_samples
-        ) + env_intercept_samples.reshape(env_slope_samples.shape[0], 1, -1)
-
-        prob = jnp.mean(sigmoid(logits), axis=0)
-
-        return prob
-
-    prob = evaluate_on_chunks(predict, 2, env_covs, is_df=False)
+    prob = predict_env_from_samples(env_covs, env_slope_samples, env_intercept_samples)
 
     return pd.DataFrame(prob, index=X_env.index, columns=design_info["species_names"])
 
@@ -145,19 +135,8 @@ def predict_obs(X_env, X_obs, samples, design_info):
 
     obs_slope_samples = flatten_chains(transformed_samples["obs_coefs"])
 
-    @jit
-    def predict(X_env, X_obs):
-
-        env_logits = jnp.einsum(
-            "nc,dcs->dns", X_env, env_slope_samples
-        ) + env_intercept_samples.reshape(env_slope_samples.shape[0], 1, -1)
-
-        obs_logits = jnp.einsum("nc,dcs->dns", X_obs, obs_slope_samples)
-
-        prob = jnp.exp(log_sigmoid(env_logits) + log_sigmoid(obs_logits)).mean(axis=0)
-
-        return prob
-
-    result = evaluate_on_chunks(predict, 2, env_covs, obs_covs, is_df=False)
+    result = predict_obs_from_samples(
+        env_covs, env_slope_samples, env_intercept_samples, obs_covs, obs_slope_samples
+    )
 
     return pd.DataFrame(result, columns=design_info["species_names"])

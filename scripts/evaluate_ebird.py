@@ -47,12 +47,19 @@ from sdm_ml.checklist_level.ebird_joint_checklist_model_numpyro import (
     EBirdJointChecklistModelNumpyro,
 )
 from sdm_ml.checklist_level.linear_checklist_model import LinearChecklistModel
+from sdm_ml.checklist_level.ebird_joint_checklist_model_stan import (
+    EBirdJointChecklistModelStan,
+)
 
 
 ebird_dataset = load_ebird_dataset_using_env_var()
 train_set = ebird_dataset["train"]
 bio_covs = [x for x in train_set.X_env.columns if "bio" in x]
 train_covs = train_set.X_env
+
+stan_model_path = (
+    "/home/martin/projects/sdm_ml/sdm_ml/checklist_level/stan/checklist_model.stan"
+)
 
 # subset_size = int(1000)
 # subset_size = int(1000)
@@ -130,7 +137,11 @@ models = {
         env_formula=env_formula, obs_formula=obs_formula, M=M
     ),
     "max_lik": LinearChecklistModel(env_formula, obs_formula),
+    "stan": EBirdJointChecklistModelStan(stan_model_path, env_formula, obs_formula),
 }
+
+# Fit only model indicated
+models = {x: y for x, y in models.items() if x == model_name}
 
 os.makedirs(target_dir, exist_ok=True)
 
