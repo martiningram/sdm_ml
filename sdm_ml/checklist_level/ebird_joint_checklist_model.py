@@ -38,7 +38,7 @@ class EBirdJointChecklistModel(ChecklistModel):
             checklist_cell_ids,
             self.env_formula,
             self.obs_formula,
-            scale_env=True,
+            scale_env=False,
             draws=self.n_draws,
             M=self.M,
             verbose=self.verbose_fit,

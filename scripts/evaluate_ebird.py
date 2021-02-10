@@ -1,13 +1,17 @@
 import sys
 
-assert sys.argv[1] in ["float", "double"]
-assert sys.argv[2] in ["gpu", "cpu"]
 
-use_double_precision = sys.argv[1] == "double"
-use_gpu = sys.argv[2] == "gpu"
-subset_size = int(sys.argv[3])
-min_presences = int(sys.argv[4])
-target_dir = sys.argv[5]
+model_name = sys.argv[1]
+use_double_precision = sys.argv[2] == "double"
+use_gpu = sys.argv[3] == "gpu"
+subset_size = int(sys.argv[4])
+min_presences = int(sys.argv[5])
+M = int(sys.argv[6])
+target_dir = sys.argv[7]
+
+assert sys.argv[2] in ["float", "double"]
+assert sys.argv[3] in ["gpu", "cpu"]
+assert model_name in ["numpyro", "vi", "max_lik", "stan"]
 
 if use_double_precision:
     print("Using double precision")
@@ -30,6 +34,8 @@ from sdm_ml.checklist_level.checklist_dataset import (
     load_ebird_dataset_using_env_var,
     random_checklist_subset,
 )
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
 # from sdm_ml.checklist_level.ebird_joint_checklist_model_efficient import (
 #     EBirdJointChecklistModel,
@@ -90,13 +96,18 @@ env_formula = create_formula(
 )
 
 # Add on the other ones
-to_add = [x for x in train_set.X_env.columns if "X" in x and x != "X" and x != "X12"]
+to_add = [
+    x
+    for x in train_set.X_env.columns
+    if "X" in x and x != "X" and x != "X12" or "dominant" in x
+]
 combined = "+".join(to_add)
 
 train_covs = train_covs[bio_covs + to_add]
 test_covs = test_covs[bio_covs + to_add]
 
 # env_formula = env_formula + "+" + combined
+env_formula = env_formula + "+" + "dominant_cover"
 
 print(env_formula)
 
@@ -106,20 +117,19 @@ chain_method = "vectorized" if use_gpu else "parallel"
 suffix = "_gpu" if use_gpu else "_cpu"
 
 models = {
-    "checklist_model_numpyro"
+    "numpyro"
     + suffix: EBirdJointChecklistModelNumpyro(
         env_formula,
         obs_formula,
-        n_draws=100,
-        n_tune=100,
-        thinning=1,
+        n_draws=1000,
+        n_tune=1000,
+        thinning=4,
         chain_method=chain_method,
     ),
-    # "checklist_model_vi": EBirdJointChecklistModel(M=25, env_interactions=False),
-    # "checklist_model_vi_design_mat": EBirdJointChecklistModelDesignMat(
-    #     env_formula=env_formula, obs_formula=obs_formula, M=10
-    # ),
-    # "linear_checklist_max_lik": LinearChecklistModel(env_formula, obs_formula),
+    "vi": EBirdJointChecklistModelDesignMat(
+        env_formula=env_formula, obs_formula=obs_formula, M=M
+    ),
+    "max_lik": LinearChecklistModel(env_formula, obs_formula),
 }
 
 os.makedirs(target_dir, exist_ok=True)
@@ -138,6 +148,18 @@ for cur_model_name, model in models.items():
     ]
     y_checklist = train_set.y_obs[species_subset].iloc[choice]
     checklist_cell_ids = subsetting_result["checklist_cell_ids"]
+
+    scaler = StandardScaler()
+    to_scale = bio_covs
+    not_scaled = to_add
+    scaled_bio_covs = scaler.fit_transform(X_env[bio_covs])
+    X_env_scaled = pd.concat(
+        [
+            pd.DataFrame(scaled_bio_covs, index=X_env.index, columns=bio_covs),
+            X_env[not_scaled],
+        ],
+        axis=1,
+    )
 
     # Standardise log duration
     log_duration_mean = X_checklist["log_duration"].mean()
@@ -159,7 +181,7 @@ for cur_model_name, model in models.items():
 
     start_time = time.time()
     model.fit(
-        X_env=X_env,
+        X_env=X_env_scaled,
         X_checklist=X_checklist,
         y_checklist=y_checklist,
         checklist_cell_ids=checklist_cell_ids,
@@ -170,11 +192,20 @@ for cur_model_name, model in models.items():
     rel_y = test_y[species_subset]
     rel_covs = test_covs.loc[test_cell_ids]
 
+    scaled_bio_covs = scaler.transform(rel_covs[bio_covs])
+    rel_covs_scaled = pd.concat(
+        [
+            pd.DataFrame(scaled_bio_covs, index=rel_covs.index, columns=bio_covs),
+            rel_covs[not_scaled],
+        ],
+        axis=1,
+    )
+
     cur_target_dir = target_dir + cur_model_name + "/"
     model.save_model(cur_target_dir)
     print(runtime, file=open(cur_target_dir + "runtime.txt", "w"))
 
-    pred_pres_prob = model.predict_marginal_probabilities_direct(train_covs)
+    pred_pres_prob = model.predict_marginal_probabilities_direct(rel_covs_scaled)
     pred_pres_prob.to_csv(os.path.join(cur_target_dir, "pres_preds.csv"))
 
     X_obs_test = test_set.X_obs
@@ -182,7 +213,9 @@ for cur_model_name, model in models.items():
         X_obs_test["log_duration"] - log_duration_mean
     ) / log_duration_std
 
-    pred_obs_prob = model.predict_marginal_probabilities_obs(rel_covs, X_obs_test)
+    pred_obs_prob = model.predict_marginal_probabilities_obs(
+        rel_covs_scaled, X_obs_test
+    )
     pred_obs_prob.to_csv(os.path.join(cur_target_dir, "obs_preds.csv"))
 
     rel_y.to_csv(os.path.join(cur_target_dir, "y_t.csv"))

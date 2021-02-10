@@ -41,7 +41,7 @@ class EBirdJointChecklistModelNumpyro(ChecklistModel):
             checklist_cell_ids,
             self.env_formula,
             self.obs_formula,
-            scale_env=True,
+            scale_env=False,
             draws=self.n_draws,
             tune=self.n_tune,
             thinning=self.thinning,

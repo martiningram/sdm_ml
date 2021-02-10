@@ -7,6 +7,7 @@ from os.path import join
 from ml_tools.paths import base_name_from_path
 from ml_tools.modelling import remove_correlated_variables
 from sklearn.preprocessing import LabelEncoder
+from ml_tools.sdm import land_cover_lookup
 import os
 
 
