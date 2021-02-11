@@ -59,7 +59,7 @@ class EBirdJointChecklistModelStan(ChecklistModel):
             "y": y_checklist.values.astype(int),
         }
 
-        self.fit_results = self.stan_model.sampling(data=model_data, thin=4, iter=200)
+        self.fit_results = self.stan_model.sampling(data=model_data, thin=4)
 
     def predict_marginal_probabilities_direct(self, X: pd.DataFrame) -> pd.DataFrame:
 

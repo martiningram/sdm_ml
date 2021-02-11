@@ -61,15 +61,17 @@ stan_model_path = (
     "/home/martin/projects/sdm_ml/sdm_ml/checklist_level/stan/checklist_model.stan"
 )
 
-# subset_size = int(1000)
-# subset_size = int(1000)
-# subset_size = train_set.X_obs.shape[0]
 # min_presences = 5
 # n_species = 32
 n_species = None
 
 # Make a subset of the training checklists
 np.random.seed(2)
+
+if subset_size == -1:
+    # Use full dataset
+    subset_size = train_set.X_obs.shape[0]
+
 subsetting_result = random_checklist_subset(
     train_set.X_obs.shape[0], train_set.env_cell_ids, subset_size
 )
@@ -122,6 +124,7 @@ obs_formula = "protocol_type + daytimes_alt + log_duration_z + dominant_land_cov
 
 chain_method = "vectorized" if use_gpu else "parallel"
 suffix = "_gpu" if use_gpu else "_cpu"
+suffix = suffix + "_double" if use_double_precision else suffix + "_float"
 
 models = {
     "numpyro"
@@ -141,7 +144,9 @@ models = {
 }
 
 # Fit only model indicated
-models = {x: y for x, y in models.items() if x == model_name}
+models = {
+    x: y for x, y in models.items() if x == model_name or x == model_name + suffix
+}
 
 os.makedirs(target_dir, exist_ok=True)
 
