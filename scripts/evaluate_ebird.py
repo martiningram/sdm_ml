@@ -102,6 +102,7 @@ env_formula = create_formula(
     main_effects=True,
     quadratic_effects=True,
     interactions=False,
+    intercept=False,
 )
 
 # Add on the other ones
