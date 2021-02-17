@@ -30,6 +30,7 @@ import os
 import time
 import numpy as np
 from ml_tools.patsy import create_formula
+from ml_tools.utils import save_pickle_safely
 from sdm_ml.checklist_level.checklist_dataset import (
     load_ebird_dataset_using_env_var,
     random_checklist_subset,
@@ -121,6 +122,16 @@ env_formula = env_formula + "+" + "dominant_cover"
 
 print(env_formula)
 
+# Same but includes an intercept term
+env_formula_max_lik = create_formula(
+    bio_covs,
+    main_effects=True,
+    quadratic_effects=True,
+    interactions=False,
+    intercept=True,
+)
+env_formula_max_lik = env_formula_max_lik + "+" + "dominant_cover"
+
 obs_formula = "protocol_type + daytimes_alt + log_duration_z + dominant_land_cover"
 
 chain_method = "vectorized" if use_gpu else "parallel"
@@ -140,7 +151,7 @@ models = {
     "vi": EBirdJointChecklistModelDesignMat(
         env_formula=env_formula, obs_formula=obs_formula, M=M
     ),
-    "max_lik": LinearChecklistModel(env_formula, obs_formula),
+    "max_lik": LinearChecklistModel(env_formula_max_lik, obs_formula),
     "stan": EBirdJointChecklistModelStan(stan_model_path, env_formula, obs_formula),
 }
 
@@ -221,6 +232,16 @@ for cur_model_name, model in models.items():
     cur_target_dir = target_dir + cur_model_name + "/"
     model.save_model(cur_target_dir)
     print(runtime, file=open(cur_target_dir + "runtime.txt", "w"))
+
+    # Save scaling info
+    save_pickle_safely(
+        {
+            "env_scaler": scaler,
+            "log_duration_mean": log_duration_mean,
+            "log_duration_sd": log_duration_std,
+        },
+        os.path.join(cur_target_dir, "scaler.pkl"),
+    )
 
     pred_pres_prob = model.predict_marginal_probabilities_direct(rel_covs_scaled)
     pred_pres_prob.to_csv(os.path.join(cur_target_dir, "pres_preds.csv"))

@@ -31,7 +31,7 @@ def fit(
     M=20,
     seed=3,
     verbose=True,
-    opt_method="trust-krylov",
+    opt_method="trust-ncg",
     # opt_method="L-BFGS-B",
 ):
 
