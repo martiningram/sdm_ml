@@ -66,6 +66,8 @@ class EBirdJointChecklistModel(ChecklistModel):
                 else self.design_info["env_scaler"],
                 "species_names": self.design_info["species_names"],
                 "advi_results": get_pickleable_subset(self.advi_results),
+                "env_formula": self.env_formula,
+                "obs_formula": self.obs_formula,
             },
             join(target_folder, "design_info.pkl"),
         )

@@ -69,6 +69,8 @@ class EBirdJointChecklistModelNumpyro(ChecklistModel):
                 if "env_scaler" not in self.design_info
                 else self.design_info["env_scaler"],
                 "species_names": self.design_info["species_names"],
+                "env_formula": self.env_formula,
+                "obs_formula": self.obs_formula,
             },
             join(target_folder, "design_info.pkl"),
         )

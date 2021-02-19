@@ -68,6 +68,7 @@ model {
   // env_slope_sds ~ normal(0, 1);
   obs_slope_means ~ normal(0, 1);
   obs_slope_sds ~ normal(0, 1);
+  env_intercepts ~ normal(0, 10);
 
   // Summarise the log observation likelihoods per cell
   for (k in 1:K) {

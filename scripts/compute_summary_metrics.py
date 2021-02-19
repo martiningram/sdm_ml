@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 
 base_dir = "./evaluations/comparisons/"
+# base_dir = "./evaluations/stan_debug/"
 all_pred_files = glob(base_dir + "/*/*/obs_preds.csv")
 
 for cur_pred_file in tqdm(all_pred_files):

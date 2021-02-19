@@ -113,6 +113,8 @@ class LinearChecklistModel(ChecklistModel):
                 env_coefs=cur_results["env_coefs"],
                 obs_coefs=cur_results["obs_coefs"],
                 successful=cur_results["optimisation_successful"],
+                env_formula=self.env_formula,
+                det_formula=self.det_formula,
             )
 
         # Save the scaler

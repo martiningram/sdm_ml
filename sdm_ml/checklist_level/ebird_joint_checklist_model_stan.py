@@ -96,6 +96,8 @@ class EBirdJointChecklistModelStan(ChecklistModel):
             "obs_cov_names": self.obs_cov_names,
             "env_cov_names": self.env_cov_names,
             "species_names": self.species_names,
+            "env_formula": self.env_formula,
+            "obs_formula": self.obs_formula,
         }
 
         save_pickle_safely(to_pickle, join(target_folder, "fit_results.pkl"))

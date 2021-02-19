@@ -163,7 +163,9 @@ def add_derived_covariates_env(X_env):
     coarse_dominant = named_dominant.copy()
     coarse_dominant[coarse_dominant.str.contains("Developed")] = "Developed"
     coarse_dominant[coarse_dominant.str.contains("Wetlands")] = "Wetlands"
-    coarse_dominant[coarse_dominant.isin(["Unknown", "Barren Land"])] = "Other"
+    coarse_dominant[
+        coarse_dominant.isin(["Unknown", "Barren Land", "Perennial Ice/Snow"])
+    ] = "Other"
 
     X_env["dominant_cover"] = coarse_dominant
 

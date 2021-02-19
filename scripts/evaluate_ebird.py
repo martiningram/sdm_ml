@@ -63,7 +63,7 @@ stan_model_path = (
 )
 
 # min_presences = 5
-# n_species = 32
+# n_species = 4
 n_species = None
 
 # Make a subset of the training checklists
@@ -239,6 +239,8 @@ for cur_model_name, model in models.items():
             "env_scaler": scaler,
             "log_duration_mean": log_duration_mean,
             "log_duration_sd": log_duration_std,
+            "env_vars_scaled": to_scale,
+            "env_vars_unscaled": not_scaled,
         },
         os.path.join(cur_target_dir, "scaler.pkl"),
     )
