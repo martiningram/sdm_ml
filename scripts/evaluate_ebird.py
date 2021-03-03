@@ -107,18 +107,15 @@ env_formula = create_formula(
 )
 
 # Add on the other ones
-to_add = [
-    x
-    for x in train_set.X_env.columns
-    if "X" in x and x != "X" and x != "X12" or "dominant" in x
-]
+to_add = [x for x in train_set.X_env.columns if x.startswith("has_")]
+
 combined = "+".join(to_add)
 
 train_covs = train_covs[bio_covs + to_add]
 test_covs = test_covs[bio_covs + to_add]
 
-# env_formula = env_formula + "+" + combined
-env_formula = env_formula + "+" + "dominant_cover"
+env_formula = env_formula + "+" + combined
+# env_formula = env_formula + "+" + "dominant_cover"
 
 print(env_formula)
 
@@ -130,7 +127,7 @@ env_formula_max_lik = create_formula(
     interactions=False,
     intercept=True,
 )
-env_formula_max_lik = env_formula_max_lik + "+" + "dominant_cover"
+env_formula_max_lik = env_formula_max_lik + "+" + combined
 
 obs_formula = "protocol_type + daytimes_alt + log_duration_z + dominant_land_cover"
 

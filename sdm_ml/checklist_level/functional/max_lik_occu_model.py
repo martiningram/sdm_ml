@@ -8,6 +8,10 @@ from jax import jit
 from sdm_ml.checklist_level.likelihoods import compute_checklist_likelihood
 from sklearn.preprocessing import StandardScaler
 
+# TODO: Remove this dependency
+from jax_advi.diagnostics import compute_ev
+from jax_advi.utils.autodiff import hvp
+
 
 def likelihood_fun(theta, m, X_env, X_checklist, checklist_cell_ids, n_cells):
 
@@ -60,7 +64,9 @@ def fit(
         )
     )
 
-    fit_result, opt_result = find_map_estimate(theta, lik_curried)
+    fit_result, opt_result = find_map_estimate(
+        theta, lik_curried, opt_method="trust-ncg"
+    )
 
     # assert opt_result.success, "Optimisation failed!"
 
@@ -79,6 +85,7 @@ def fit(
         "env_formula": env_formula,
         "checklist_formula": checklist_formula,
         "optimisation_successful": opt_result.success,
+        "opt_result": opt_result,
     }
 
 

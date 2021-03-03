@@ -47,6 +47,8 @@ class LinearChecklistModel(ChecklistModel):
                 scale_env_data=True,
             )
 
+            # print(cur_species, fit_result["optimisation_successful"])
+
             self.fit_results.append(fit_result)
 
     def predict_marginal_probabilities_direct(self, X: pd.DataFrame) -> np.ndarray:

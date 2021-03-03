@@ -6,11 +6,11 @@
 # python scripts/evaluate_ebird.py vi float gpu 1000 0 100 ./evaluations/comparisons/1000/
 # python scripts/evaluate_ebird.py vi float gpu 2000 0 100 ./evaluations/comparisons/2000/
 # python scripts/evaluate_ebird.py vi float gpu 4000 0 100 ./evaluations/comparisons/4000/
-python scripts/evaluate_ebird.py vi float gpu 8000 0 25 ./evaluations/comparisons/8000/
+# python scripts/evaluate_ebird.py vi float gpu 8000 0 25 ./evaluations/comparisons/8000/
 # python scripts/evaluate_ebird.py vi float gpu 16000 0 25 ./evaluations/comparisons/16000/
-python scripts/evaluate_ebird.py vi float gpu 32000 0 15 ./evaluations/comparisons/32000/
-python scripts/evaluate_ebird.py vi float gpu 64000 0 15 ./evaluations/comparisons/64000/
-python scripts/evaluate_ebird.py vi float gpu 100000 0 10 ./evaluations/comparisons/100000/
+# python scripts/evaluate_ebird.py vi float gpu 32000 0 15 ./evaluations/comparisons/32000/
+# python scripts/evaluate_ebird.py vi float gpu 64000 0 15 ./evaluations/comparisons/64000/
+# python scripts/evaluate_ebird.py vi float gpu 100000 0 10 ./evaluations/comparisons/100000/
 
 ### Numpyro
 # python scripts/evaluate_ebird.py numpyro float gpu 1000 0 100 ./evaluations/comparisons/1000/
@@ -21,7 +21,7 @@ python scripts/evaluate_ebird.py vi float gpu 100000 0 10 ./evaluations/comparis
 # python scripts/evaluate_ebird.py numpyro float gpu 32000 0 100 ./evaluations/comparisons/32000/
 
 ### Max lik
-# python scripts/evaluate_ebird.py max_lik float gpu -1 0 100 ./evaluations/comparisons/max_lik_full/
+python scripts/evaluate_ebird.py max_lik float gpu -1 0 100 ./evaluations/comparisons/max_lik_full/
 
 ### Stan
 # python scripts/evaluate_ebird.py stan float gpu 1000 0 10 ./evaluations/comparisons/1000/

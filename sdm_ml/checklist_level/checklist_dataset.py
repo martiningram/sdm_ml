@@ -169,6 +169,36 @@ def add_derived_covariates_env(X_env):
 
     X_env["dominant_cover"] = coarse_dominant
 
+    # Add "has" columns:
+    replacements = {x: "has_" + land_cover_lookup[x] for x in land_covers.columns}
+    has_cover = land_covers.rename(columns=replacements) > 0
+
+    # Do similar replacements as for dominant cover:
+    other_cols = ["has_Unknown", "has_Barren Land", "has_Perennial Ice/Snow"]
+
+    other = has_cover[other_cols].any(axis=1)
+    altered = has_cover.drop(columns=other_cols)
+    altered["has_Other"] = other
+
+    dev_cols = altered.columns[altered.columns.str.contains("Developed")]
+
+    developed = altered[dev_cols].any(axis=1)
+    altered = altered.drop(columns=dev_cols)
+    altered["has_Developed"] = developed
+
+    wetlands_cols = altered.columns[altered.columns.str.contains("Wetlands")]
+
+    wetlands = altered[wetlands_cols].any(axis=1)
+    altered = altered.drop(columns=wetlands_cols)
+    altered["has_Wetlands"] = wetlands
+
+    renamings = {
+        x: x.lower().replace(" ", "_").replace("/", "_or_") for x in altered.columns
+    }
+    altered = altered.rename(columns=renamings)
+
+    X_env = pd.concat([X_env, altered], axis=1)
+
     return X_env
 
 
