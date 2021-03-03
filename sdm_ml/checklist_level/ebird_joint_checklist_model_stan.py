@@ -14,6 +14,7 @@ from scipy.special import expit
 from jax.nn import log_sigmoid
 from sdm_ml.checklist_level.utils import evaluate_on_chunks
 from .functional.utils import predict_env_from_samples, predict_obs_from_samples
+from ml_tools.patsy import remove_intercept_column
 
 
 class EBirdJointChecklistModelStan(ChecklistModel):
@@ -44,6 +45,8 @@ class EBirdJointChecklistModelStan(ChecklistModel):
         env_design_mat = dmatrix(self.env_formula, X_env)
         X_env = np.asarray(env_design_mat)
 
+        X_env = remove_intercept_column(X_env, env_design_mat.design_info)
+
         self.env_cov_names = env_design_mat.design_info.column_names
         self.env_design_info = env_design_mat.design_info
 
@@ -64,6 +67,8 @@ class EBirdJointChecklistModelStan(ChecklistModel):
     def predict_marginal_probabilities_direct(self, X: pd.DataFrame) -> pd.DataFrame:
 
         X_design = np.asarray(build_design_matrices([self.env_design_info], X)[0])
+        X_design = remove_intercept_column(X_design, self.env_design_info)
+
         coef_draws = self.fit_results["env_slopes"]
         inter_draws = self.fit_results["env_intercepts"]
         probs = predict_env_from_samples(X_design, coef_draws, inter_draws)
@@ -76,6 +81,7 @@ class EBirdJointChecklistModelStan(ChecklistModel):
 
         env_covs = np.asarray(build_design_matrices([self.env_design_info], X)[0])
         obs_covs = np.asarray(build_design_matrices([self.obs_design_info], X_obs)[0])
+        env_covs = remove_intercept_column(env_covs, self.env_design_info)
 
         coef_draws = self.fit_results["env_slopes"]
         inter_draws = self.fit_results["env_intercepts"]

@@ -65,7 +65,7 @@ def fit(
     )
 
     fit_result, opt_result = find_map_estimate(
-        theta, lik_curried, opt_method="trust-ncg"
+        theta, lik_curried, opt_method="trust-ncg", gtol=1
     )
 
     # assert opt_result.success, "Optimisation failed!"

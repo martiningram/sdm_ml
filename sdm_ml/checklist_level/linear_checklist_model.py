@@ -47,7 +47,7 @@ class LinearChecklistModel(ChecklistModel):
                 scale_env_data=True,
             )
 
-            # print(cur_species, fit_result["optimisation_successful"])
+            print(cur_species, fit_result["optimisation_successful"])
 
             self.fit_results.append(fit_result)
 
