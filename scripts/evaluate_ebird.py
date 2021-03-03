@@ -98,12 +98,14 @@ for cur_field in ["time_of_day", "protocol_type"]:
     print(cur_field, unique_test, unique_train)
     assert set(unique_test) == set(unique_train)
 
+# Note that intercept included here will be removed -- this is not pretty but
+# necessary for things to work as they should with patsy.
 env_formula = create_formula(
     bio_covs,
     main_effects=True,
     quadratic_effects=True,
     interactions=False,
-    intercept=False,
+    intercept=True,
 )
 
 # Add on the other ones

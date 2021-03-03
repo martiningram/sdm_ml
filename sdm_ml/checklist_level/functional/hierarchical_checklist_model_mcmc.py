@@ -17,6 +17,7 @@ import pandas as pd
 import jax.numpy as jnp
 from jax.scipy.stats import norm
 from .utils import predict_env_from_samples, predict_obs_from_samples
+from ml_tools.patsy import remove_intercept_column
 
 
 def fit(
@@ -38,6 +39,9 @@ def fit(
 
     env_covs = np.asarray(env_design_mat)
     checklist_covs = np.asarray(checklist_design_mat)
+
+    # Workaround to remove intercept
+    env_covs = remove_intercept_column(env_covs, env_design_mat.design_info)
 
     if scale_env:
         scaler = StandardScaler()
@@ -105,6 +109,7 @@ def predict_env(X_env, samples, design_info):
 
     design_mat = build_design_matrices([design_info["env"]], X_env)[0]
     env_covs = np.asarray(design_mat)
+    env_covs = remove_intercept_column(env_covs, design_mat.design_info)
 
     if "env_scaler" in design_info:
         env_covs = design_info["env_scaler"].transform(env_covs)
@@ -120,6 +125,8 @@ def predict_obs(X_env, X_obs, samples, design_info):
 
     env_design_mat = build_design_matrices([design_info["env"]], X_env)[0]
     env_covs = np.asarray(env_design_mat)
+
+    env_covs = remove_intercept_column(env_covs, env_design_mat.design_info)
 
     if "env_scaler" in design_info:
         env_covs = design_info["env_scaler"].transform(env_covs)

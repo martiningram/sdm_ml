@@ -17,6 +17,7 @@ from .model import (
 )
 from .hierarchical_checklist_model_mcmc import predict_obs, predict_env
 from sklearn.preprocessing import StandardScaler
+from ml_tools.patsy import remove_intercept_column
 
 
 def fit(
@@ -42,6 +43,8 @@ def fit(
 
     env_covs = np.asarray(env_design_mat)
     checklist_covs = np.asarray(checklist_design_mat)
+
+    env_covs = remove_intercept_column(env_covs, env_design_mat.design_info)
 
     if scale_env:
         scaler = StandardScaler()
