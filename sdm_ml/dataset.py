@@ -121,6 +121,42 @@ class BBS2019(Dataset):
         return self.dataset["test"]
 
 
+def collapse_bbs_subspecies(pa_df):
+
+    outcome_cols = [
+        x for x in pa_df.columns if x not in ["X", "Y", "fold_id", "cell_id"]
+    ]
+
+    # TODO: Also drop correlated covariates
+
+    # Remove outcome columns with slashes that were not assigned uniquely, or
+    # just assigned to "sp."
+    outcome_cols = [x for x in outcome_cols if "/" not in x and "sp." not in x]
+
+    # Collapse the species with subspecies
+    n_words = pd.Series(
+        [len(x.split(" ")) for x in outcome_cols],
+        index=outcome_cols,
+    )
+    to_collapse = n_words[n_words > 2].index
+
+    outcomes = pa_df[outcome_cols]
+    new_outcomes = outcomes.copy()
+
+    for cur_species in to_collapse:
+
+        target = " ".join(cur_species.split(" ")[:2])
+
+        if target not in new_outcomes.columns:
+            new_outcomes[target] = np.repeat(False, new_outcomes.shape[0])
+
+        new_outcomes[target] = new_outcomes[target] | new_outcomes[cur_species]
+
+    new_outcomes = new_outcomes.drop(columns=to_collapse)
+
+    return new_outcomes
+
+
 def load_bbs_dataset_2019(
     bbs_csv: str,
     covariates_csv: str,
@@ -147,33 +183,7 @@ def load_bbs_dataset_2019(
         covs_to_keep = remove_correlated_variables(train_covs)
         pa_covs = pa_covs[covs_to_keep]
 
-    outcome_cols = [
-        x for x in pa_df.columns if x not in ["X", "Y", "fold_id", "cell_id"]
-    ]
-
-    # TODO: Also drop correlated covariates
-
-    # Remove outcome columns with slashes that were not assigned uniquely, or
-    # just assigned to "sp."
-    outcome_cols = [x for x in outcome_cols if "/" not in x and "sp." not in x]
-
-    # Collapse the species with subspecies
-    n_words = pd.Series([len(x.split(" ")) for x in outcome_cols], index=outcome_cols,)
-    to_collapse = n_words[n_words > 2].index
-
-    outcomes = pa_df[outcome_cols]
-    new_outcomes = outcomes.copy()
-
-    for cur_species in to_collapse:
-
-        target = " ".join(cur_species.split(" ")[:2])
-
-        if target not in new_outcomes.columns:
-            new_outcomes[target] = np.repeat(False, new_outcomes.shape[0])
-
-        new_outcomes[target] = new_outcomes[target] | new_outcomes[cur_species]
-
-    new_outcomes = new_outcomes.drop(columns=to_collapse)
+    new_outcomes = collapse_bbs_subspecies(pa_df)
 
     n_train_obs = new_outcomes[is_train.values].sum()
     to_keep = n_train_obs[n_train_obs > min_train_occurrences].index

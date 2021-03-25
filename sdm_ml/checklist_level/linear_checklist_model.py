@@ -47,7 +47,11 @@ class LinearChecklistModel(ChecklistModel):
                 scale_env_data=True,
             )
 
-            print(cur_species, fit_result["optimisation_successful"])
+            print(
+                cur_species,
+                fit_result["optimisation_successful"],
+                np.linalg.norm(fit_result["opt_result"].jac),
+            )
 
             self.fit_results.append(fit_result)
 
@@ -117,6 +121,7 @@ class LinearChecklistModel(ChecklistModel):
                 successful=cur_results["optimisation_successful"],
                 env_formula=self.env_formula,
                 det_formula=self.det_formula,
+                final_grad_norm=np.linalg.norm(cur_results["opt_result"].jac),
             )
 
         # Save the scaler

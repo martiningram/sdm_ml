@@ -33,6 +33,7 @@ def fit(
     env_formula: str,
     checklist_formula: str,
     scale_env_data=False,
+    gtol=1e-3,
 ):
 
     env_design_mat = dmatrix(env_formula, X_env)
@@ -65,7 +66,7 @@ def fit(
     )
 
     fit_result, opt_result = find_map_estimate(
-        theta, lik_curried, opt_method="trust-ncg", gtol=1
+        theta, lik_curried, opt_method="trust-ncg", gtol=gtol
     )
 
     # assert opt_result.success, "Optimisation failed!"
